@@ -169,6 +169,7 @@ typedef enum OMX_COLOR_FORMATTYPE {
     OMX_QCOM_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka = 0x7FA30C03,
     OMX_SEC_COLOR_FormatNV12Tiled = 0x7FC00002,
     OMX_QCOM_COLOR_FormatYUV420PackedSemiPlanar32m = 0x7FA30C04,
+    OMX_AML_COLOR_FormatYV12 = 0x7FA30C05,        /**< used for AML h265 native render */
     OMX_COLOR_FormatMax = 0x7FFFFFFF
 } OMX_COLOR_FORMATTYPE;
 

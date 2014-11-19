@@ -85,6 +85,7 @@ typedef enum OMX_VIDEO_CODINGTYPE {
     OMX_VIDEO_CodingRV,         /**< all versions of Real Video */
     OMX_VIDEO_CodingAVC,        /**< H.264/AVC */
     OMX_VIDEO_CodingMJPEG,      /**< Motion JPEG */
+    OMX_VIDEO_CodingVPX,        /**< Google VPX, formerly known as On2 VP6 */
     OMX_VIDEO_CodingVP8,        /**< Google VP8, formerly known as On2 VP8 */
     OMX_VIDEO_CodingVP9,        /**< Google VP9 */
     OMX_VIDEO_CodingHEVC,       /**< ITU H.265/HEVC */
@@ -1069,6 +1070,19 @@ typedef struct OMX_VIDEO_CONFIG_NALSIZE {
     OMX_U32 nPortIndex;
     OMX_U32 nNaluBytes;
 } OMX_VIDEO_CONFIG_NALSIZE;
+
+/**
+ * AML RM/WMV2 Video information
+ */
+typedef struct OMX_VIDEO_INFO {
+    OMX_U32 nSize;
+    OMX_VERSIONTYPE nVersion;
+    OMX_U32 nPortIndex;
+    OMX_U8* mExtraData;
+    OMX_U32 nExtraDataSize;
+    OMX_U32 width;
+    OMX_U32 height;
+} OMX_VIDEO_INFO;
 
 /** @} */
 

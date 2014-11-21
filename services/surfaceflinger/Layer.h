@@ -403,6 +403,9 @@ private:
 
     // This layer can be a cursor on some displays.
     bool mPotentialCursor;
+
+    bool mIsBootAnimation;
+    Transform mBootAnimTr;
 };
 
 // ---------------------------------------------------------------------------

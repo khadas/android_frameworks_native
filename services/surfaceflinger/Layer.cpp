@@ -136,6 +136,11 @@ void Layer::onFirstRef() {
 
     const sp<const DisplayDevice> hw(mFlinger->getDefaultDisplayDevice());
     updateTransformHint(hw);
+
+    mIsBootAnimation = (0 == strcmp(mName.string(), "BootAnimation"));
+    if(mIsBootAnimation){
+         mBootAnimTr = hw->getTransform();
+    }
 }
 
 Layer::~Layer() {
@@ -734,8 +739,11 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
         bool useIdentityTransform) const
 {
     const Layer::State& s(getDrawingState());
-    const Transform tr(useIdentityTransform ?
-            hw->getTransform() : hw->getTransform() * s.transform);
+    const Transform tr(!mIsBootAnimation
+                       ? (useIdentityTransform ? hw->getTransform()
+                                               : hw->getTransform() * s.transform)
+                       : (s.transform*mBootAnimTr));
+
     const uint32_t hw_h = hw->getHeight();
     Rect win(s.active.w, s.active.h);
     if (!s.active.crop.isEmpty()) {

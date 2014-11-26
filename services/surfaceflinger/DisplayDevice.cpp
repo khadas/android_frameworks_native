@@ -23,6 +23,7 @@
 
 #include <utils/RefBase.h>
 #include <utils/Log.h>
+#include <cutils/properties.h>
 
 #include <ui/DisplayInfo.h>
 #include <ui/PixelFormat.h>
@@ -43,6 +44,18 @@
 // ----------------------------------------------------------------------------
 using namespace android;
 // ----------------------------------------------------------------------------
+
+//when we use a vertical panel, but the told android to use it as a horizontal panel
+int android::getDisplayHwRotation(int display_type){
+    char value[PROPERTY_VALUE_MAX] = {0};
+    if (display_type == DisplayDevice::DISPLAY_PRIMARY) {
+        property_get("ro.sf.hwrotation", value, "0");
+    } else if (display_type == DisplayDevice::DISPLAY_EXTERNAL) {
+        property_get("ro.sf.hwrotation.external", value, "0");
+    }
+    int rotation = atoi(value);
+    return rotation;
+}
 
 /*
  * Initialize the display to the specified values.
@@ -74,8 +87,11 @@ DisplayDevice::DisplayDevice(
       mLayerStack(NO_LAYER_STACK),
       mOrientation(),
       mPowerMode(HWC_POWER_MODE_OFF),
-      mActiveConfig(0)
+      mActiveConfig(0),
+      mScreenRotation(0)
 {
+    mScreenRotation = getDisplayHwRotation(type);
+
     mNativeWindow = new Surface(producer, false);
     ANativeWindow* const window = mNativeWindow.get();
 
@@ -430,6 +446,7 @@ void DisplayDevice::setProjection(int orientation,
     const int h = mDisplayHeight;
 
     Transform R;
+    orientation = (orientation+(mScreenRotation/90))%4;
     DisplayDevice::orientationToTransfrom(orientation, w, h, &R);
 
     if (!frame.isValid()) {

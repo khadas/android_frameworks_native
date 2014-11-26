@@ -431,6 +431,20 @@ void SurfaceFlinger::init() {
                     type, hwcId, mHwc->getFormat(hwcId), isSecure, token,
                     fbs, producer,
                     mRenderEngine->getEGLConfig());
+            if (type == DisplayDevice::DISPLAY_EXTERNAL) {
+                size_t j;
+                for (j=0 ; j<mDisplays.size() ; j++) {
+                    if (mDisplays[j]->getDisplayType() == HWC_DISPLAY_PRIMARY) {
+                        const sp<DisplayDevice>& dpy(mDisplays[j]);
+                        int rotation=getDisplayHwRotation(type);
+                        if (rotation == 90 || rotation == 270) {
+                             hw->setProjection(DisplayState::eOrientationDefault, Rect(dpy->getWidth(), dpy->getHeight()),Rect(hw->getHeight(),hw->getWidth()));
+                        }else{
+                             hw->setProjection(DisplayState::eOrientationDefault, Rect(dpy->getWidth(), dpy->getHeight()),Rect(hw->getWidth(),hw->getHeight()));
+                        }
+                    }
+                }
+            }
             if (i > DisplayDevice::DISPLAY_PRIMARY) {
                 // FIXME: currently we don't get blank/unblank requests
                 // for displays other than the main display, so we always
@@ -870,6 +884,9 @@ void SurfaceFlinger::doDebugFlashRegions()
 
     const bool repaintEverything = mRepaintEverything;
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
         const sp<DisplayDevice>& hw(mDisplays[dpy]);
         if (hw->isDisplayOn()) {
             // transform the dirty region into this screen's coordinate space
@@ -967,6 +984,9 @@ void SurfaceFlinger::rebuildLayerStacks() {
 
         const LayerVector& layers(mDrawingState.layersSortedByZ);
         for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            if (skipPrimaryDisplay(dpy)) {
+                continue;
+            }
             Region opaqueRegion;
             Region dirtyRegion;
             Vector< sp<Layer> > layersSortedByZ;
@@ -1001,6 +1021,9 @@ void SurfaceFlinger::rebuildLayerStacks() {
 
 void SurfaceFlinger::setUpHWComposer() {
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
         bool dirty = !mDisplays[dpy]->getDirtyRegion(false).isEmpty();
         bool empty = mDisplays[dpy]->getVisibleLayersSortedByZ().size() == 0;
         bool wasEmpty = !mDisplays[dpy]->lastCompositionHadVisibleLayers;
@@ -1035,6 +1058,9 @@ void SurfaceFlinger::setUpHWComposer() {
         if (CC_UNLIKELY(mHwWorkListDirty)) {
             mHwWorkListDirty = false;
             for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+                if (skipPrimaryDisplay(dpy)) {
+                    continue;
+                }
                 sp<const DisplayDevice> hw(mDisplays[dpy]);
                 const int32_t id = hw->getHwcDisplayId();
                 if (id >= 0) {
@@ -1058,6 +1084,9 @@ void SurfaceFlinger::setUpHWComposer() {
 
         // set the per-frame data
         for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            if (skipPrimaryDisplay(dpy)) {
+                continue;
+            }
             sp<const DisplayDevice> hw(mDisplays[dpy]);
             const int32_t id = hw->getHwcDisplayId();
             if (id >= 0) {
@@ -1101,6 +1130,9 @@ void SurfaceFlinger::setUpHWComposer() {
         ALOGE_IF(err, "HWComposer::prepare failed (%s)", strerror(-err));
 
         for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            if (skipPrimaryDisplay(dpy)) {
+                continue;
+            }
             sp<const DisplayDevice> hw(mDisplays[dpy]);
             hw->prepareFrame(hwc);
         }
@@ -1111,6 +1143,9 @@ void SurfaceFlinger::doComposition() {
     ATRACE_CALL();
     const bool repaintEverything = android_atomic_and(0, &mRepaintEverything);
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
         const sp<DisplayDevice>& hw(mDisplays[dpy]);
         if (hw->isDisplayOn()) {
             // transform the dirty region into this screen's coordinate space
@@ -1154,6 +1189,9 @@ void SurfaceFlinger::postFramebuffer()
     getDefaultDisplayDevice()->makeCurrent(mEGLDisplay, mEGLContext);
 
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
         sp<const DisplayDevice> hw(mDisplays[dpy]);
         const Vector< sp<Layer> >& currentLayers(hw->getVisibleLayersSortedByZ());
         hw->onSwapBuffersCompleted(hwc);
@@ -1411,6 +1449,9 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                 // if not, pick the only display it's on.
                 disp.clear();
                 for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+                    if (skipPrimaryDisplay(dpy)) {
+                        continue;
+                    }
                     sp<const DisplayDevice> hw(mDisplays[dpy]);
                     if (hw->getLayerStack() == currentlayerStack) {
                         if (disp == NULL) {
@@ -1660,6 +1701,9 @@ void SurfaceFlinger::computeVisibleRegions(
 void SurfaceFlinger::invalidateLayerStack(uint32_t layerStack,
         const Region& dirty) {
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
         const sp<DisplayDevice>& hw(mDisplays[dpy]);
         if (hw->getLayerStack() == layerStack) {
             hw->dirtyRegion.orSelf(dirty);
@@ -2241,16 +2285,22 @@ void SurfaceFlinger::onInitializeDisplays() {
     Vector<ComposerState> state;
     Vector<DisplayState> displays;
     DisplayState d;
-    d.what = DisplayState::eDisplayProjectionChanged |
+    for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
+        //ALOGE("onInitializeDisplays type : (%d)", dpy);
+        d.what = DisplayState::eDisplayProjectionChanged |
              DisplayState::eLayerStackChanged;
-    d.token = mBuiltinDisplays[DisplayDevice::DISPLAY_PRIMARY];
-    d.layerStack = 0;
-    d.orientation = DisplayState::eOrientationDefault;
-    d.frame.makeInvalid();
-    d.viewport.makeInvalid();
-    d.width = 0;
-    d.height = 0;
-    displays.add(d);
+        d.token = mBuiltinDisplays[dpy];
+        d.layerStack = 0;
+        d.orientation = DisplayState::eOrientationDefault;
+        d.frame.makeInvalid();
+        d.viewport.makeInvalid();
+        d.width = 0;
+        d.height = 0;
+        displays.add(d);
+    }
     setTransactionState(state, displays, 0);
     setPowerModeInternal(getDisplayDevice(d.token), HWC_POWER_MODE_NORMAL);
 
@@ -2573,6 +2623,9 @@ void SurfaceFlinger::dumpAllLocked(const Vector<String16>& args, size_t& index,
     result.appendFormat("Displays (%zu entries)\n", mDisplays.size());
     colorizer.reset(result);
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (skipPrimaryDisplay(dpy)) {
+            continue;
+        }
         const sp<const DisplayDevice>& hw(mDisplays[dpy]);
         hw->dump(result);
     }
@@ -2652,6 +2705,9 @@ SurfaceFlinger::getLayerSortedByZForHwcDisplay(int id) {
     // Note: mStateLock is held here
     wp<IBinder> dpy;
     for (size_t i=0 ; i<mDisplays.size() ; i++) {
+        if (skipPrimaryDisplay(i)) {
+            continue;
+        }
         if (mDisplays.valueAt(i)->getHwcDisplayId() == id) {
             dpy = mDisplays.keyAt(i);
             break;

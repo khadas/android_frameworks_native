@@ -134,6 +134,18 @@ public:
         return *mRenderEngine;
     }
 
+    bool skipPrimaryDisplay(size_t dpy) const {
+#ifdef SINGLE_EXTERNAL_DISPLAY_USE_FB1
+        for (size_t i=0 ; i<mDisplays.size() ; i++) {
+            if (mDisplays[i]->getDisplayType() == HWC_DISPLAY_EXTERNAL
+                && mDisplays[dpy]->getDisplayType() == HWC_DISPLAY_PRIMARY) {
+                return true;
+            }
+        }
+#endif
+        return false;
+    }
+
 private:
     friend class Client;
     friend class DisplayEventConnection;

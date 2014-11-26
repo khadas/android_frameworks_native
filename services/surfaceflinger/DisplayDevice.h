@@ -226,7 +226,10 @@ private:
     int mPowerMode;
     // Current active config
     int mActiveConfig;
+    int  mScreenRotation;
 };
+
+int getDisplayHwRotation(int display_type);
 
 }; // namespace android
 

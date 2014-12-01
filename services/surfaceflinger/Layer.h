@@ -405,6 +405,7 @@ private:
     bool mPotentialCursor;
 
     bool mIsBootAnimation;
+    bool mIsQuickBootAnimation;
     Transform mBootAnimTr;
 };
 

@@ -76,8 +76,14 @@ enum {
     eTransactionNeeded        = 0x01,
     eTraversalNeeded          = 0x02,
     eDisplayTransactionNeeded = 0x04,
-    eTransactionMask          = 0x07
+    eOtherNeeded                = 0x08,
+    eWant3DNeeded            = 0x10,
+    eTransactionMask           = 0x1f
 };
+
+static  int STEREOSCOPIC_3D_FORMAT_OFF=0;
+static  int REQUEST_3D_FORMAT_SIDE_BY_SIDE=8;
+static  int REQUEST_3D_FORMAT_TOP_BOTTOM=16;
 
 class SurfaceFlinger : public BnSurfaceComposer,
                        private IBinder::DeathRecipient,
@@ -98,6 +104,25 @@ public:
 
     enum {
         EVENT_VSYNC = HWC_EVENT_VSYNC
+    };
+
+    enum{
+        REQUEST_DISPLAY_FORMAT_1080P=0,
+        REQUEST_DISPLAY_FORMAT_1080I,
+        REQUEST_DISPLAY_FORMAT_720P,
+        REQUEST_DISPLAY_FORMAT_720I,
+        REQUEST_DISPLAY_FORMAT_576P,
+        REQUEST_DISPLAY_FORMAT_576I,
+        REQUEST_DISPLAY_FORMAT_480P,
+        REQUEST_DISPLAY_FORMAT_480I,
+        REQUEST_DISPLAY_FORMAT_MAX
+    };
+
+    enum{
+        DISPLAY_X=0,
+        DISPLAY_Y,
+        DISPLAY_WIDTH,
+        DISPLAY_HEIGHT
     };
 
     // post an asynchronous message to the main thread
@@ -180,6 +205,9 @@ private:
         sp<IGraphicBufferProducer> surface;
         uint32_t layerStack;
         Rect viewport;
+        uint32_t vFormat;
+        uint32_t vX,vY,vWidth,vHeight;
+        uint32_t d3Format;
         Rect frame;
         uint8_t orientation;
         uint32_t width, height;
@@ -279,6 +307,7 @@ private:
     uint32_t getTransactionFlags(uint32_t flags);
     uint32_t peekTransactionFlags(uint32_t flags);
     uint32_t setTransactionFlags(uint32_t flags);
+    uint32_t getDisplayFormatInfo(uint32_t format , uint32_t type);
     void commitTransaction();
     uint32_t setClientStateLocked(const sp<Client>& client, const layer_state_t& s);
     uint32_t setDisplayStateLocked(const DisplayState& s);
@@ -348,6 +377,8 @@ private:
     // called when starting, or restarting after system_server death
     void initializeDisplays();
 
+    void unblankSignalRefresh();
+
     // Create an IBinder for a builtin display and add it to current state
     void createBuiltinDisplayLocked(DisplayDevice::DisplayType type);
 
@@ -393,9 +424,15 @@ private:
     // compose surfaces for display hw. this fails if using GL and the surface
     // has been destroyed and is no longer valid.
     bool doComposeSurfaces(const sp<const DisplayDevice>& hw, const Region& dirty);
+    bool doComposeSurfacesEx(const sp<const DisplayDevice>& hw, const Region& dirty);
 
     void postFramebuffer();
     void drawWormhole(const sp<const DisplayDevice>& hw, const Region& region) const;
+
+    //return true is video buffer is in used
+    bool isVideoBufUsed(void) const;
+    void setCursorRange(int src_w, int src_h, int des_w, int des_h);
+    void setDisplayAxis(int offset_x, int offset_y, int w, int h);
 
     /* ------------------------------------------------------------------------
      * Display management
@@ -500,6 +537,16 @@ private:
 
     mat4 mColorMatrix;
     bool mHasColorMatrix;
+
+    bool mNeed2XScale;
+    //add for scale
+    uint32_t mQuestX;
+    uint32_t mQuestY;
+    uint32_t mQuestWidth;
+    uint32_t mQuestHeight;
+    uint32_t mFormat;
+    uint32_t  mLastFormat;
+    bool mLastNeed2xscale;
 };
 
 }; // namespace android

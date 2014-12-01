@@ -691,9 +691,9 @@ status_t HWComposer::prepare() {
                         disp.hasFbComp = true;
                     }
                     if (l.compositionType == HWC_OVERLAY) {
-                        //stark.li++: we need set disp.haFbComp to true when use aml video player
+                        //++we need set disp.haFbComp to true when use aml video player
                         disp.hasFbComp = true;
-                        //stark.li--
+                        //--
                         disp.hasOvComp = true;
                     }
                     if (l.compositionType == HWC_CURSOR_OVERLAY) {

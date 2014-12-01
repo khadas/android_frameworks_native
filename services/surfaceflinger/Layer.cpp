@@ -47,6 +47,9 @@
 
 #include "RenderEngine/RenderEngine.h"
 
+#include <linux/compiler.h>
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
 #define DEBUG_RESIZE    0
 
 namespace android {
@@ -75,12 +78,15 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mFrameLatencyNeeded(false),
         mFiltering(false),
         mNeedsFiltering(false),
-        mMesh(Mesh::TRIANGLE_FAN, 4, 2, 2),
+        //mMesh(Mesh::TRIANGLE_FAN, 4, 2, 2),
+        mMesh(Mesh::TRIANGLE_FAN, 8, 2, 2),
         mSecure(false),
         mProtectedByApp(false),
         mHasSurface(false),
         mClientRef(client),
-        mPotentialCursor(false)
+        mPotentialCursor(false),
+        mIsBootAnimation(false),
+        mIsQuickBootAnimation(false)
 {
     mCurrentCrop.makeInvalid();
     mFlinger->getRenderEngine().genTextures(1, &mTextureName);
@@ -141,6 +147,8 @@ void Layer::onFirstRef() {
     if(mIsBootAnimation){
          mBootAnimTr = hw->getTransform();
     }
+
+    mIsQuickBootAnimation = (0 == strcmp(mName.string(), "qbd"));
 }
 
 Layer::~Layer() {
@@ -680,10 +688,35 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
     // TODO: we probably want to generate the texture coords with the mesh
     // here we assume that we only have 4 vertices
     Mesh::VertexArray<vec2> texCoords(mMesh.getTexCoordArray<vec2>());
-    texCoords[0] = vec2(left, 1.0f - top);
-    texCoords[1] = vec2(left, 1.0f - bottom);
-    texCoords[2] = vec2(right, 1.0f - bottom);
-    texCoords[3] = vec2(right, 1.0f - top);
+
+    const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE )) {
+        texCoords[0] = vec2(left, 1.0f - top);
+        texCoords[1] = vec2(left, 1.0f - bottom);
+        texCoords[2] = vec2(right, 1.0f - bottom);
+        texCoords[3] = vec2(right, 1.0f - top);
+        texCoords[4] = vec2(left, 1.0f - top);
+        texCoords[5] = vec2(left, 1.0f - bottom);
+        texCoords[6] = vec2(right, 1.0f - bottom);
+        texCoords[7] = vec2(right, 1.0f - top);
+        mMesh.setDrawCount(8);
+    } else if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM )) {
+        texCoords[0] = vec2(left, 1.0f - top);
+        texCoords[1] = vec2(left, 1.0f - bottom);
+        texCoords[2] = vec2(right, 1.0f - bottom);
+        texCoords[3] = vec2(right, 1.0f - top);
+        texCoords[4] = vec2(left, 1.0f - top);
+        texCoords[5] = vec2(left, 1.0f - bottom);
+        texCoords[6] = vec2(right, 1.0f - bottom);
+        texCoords[7] = vec2(right, 1.0f - top);
+        mMesh.setDrawCount(8);
+    } else {
+        texCoords[0] = vec2(left, 1.0f - top);
+        texCoords[1] = vec2(left, 1.0f - bottom);
+        texCoords[2] = vec2(right, 1.0f - bottom);
+        texCoords[3] = vec2(right, 1.0f - top);
+        mMesh.setDrawCount(4);
+    }
 
     RenderEngine& engine(mFlinger->getRenderEngine());
     engine.setupLayerBlending(mPremultipliedAlpha, isOpaque(s), s.alpha);
@@ -739,12 +772,15 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
         bool useIdentityTransform) const
 {
     const Layer::State& s(getDrawingState());
-    const Transform tr(!mIsBootAnimation
-                       ? (useIdentityTransform ? hw->getTransform()
-                                               : hw->getTransform() * s.transform)
-                       : (s.transform*mBootAnimTr));
-
+    //const Transform tr(useIdentityTransform ?
+    //        hw->getTransform() : hw->getTransform() * s.transform);
+    const Transform tr( useIdentityTransform ?
+            hw->getTransform() : (mIsQuickBootAnimation ?
+            s.transform : ( !mIsBootAnimation ?
+            (hw->getTransform()*s.transform) : (s.transform*((hw->getDisplayType() == DisplayDevice::DISPLAY_PRIMARY) ?
+            mBootAnimTr : hw->getTransform())))));
     const uint32_t hw_h = hw->getHeight();
+    const uint32_t hw_w = hw->getWidth();
     Rect win(s.active.w, s.active.h);
     if (!s.active.crop.isEmpty()) {
         win.intersect(s.active.crop, &win);
@@ -753,11 +789,40 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     win = reduce(win, s.activeTransparentRegion);
 
     Mesh::VertexArray<vec2> position(mesh.getPositionArray<vec2>());
-    position[0] = tr.transform(win.left,  win.top);
-    position[1] = tr.transform(win.left,  win.bottom);
-    position[2] = tr.transform(win.right, win.bottom);
-    position[3] = tr.transform(win.right, win.top);
-    for (size_t i=0 ; i<4 ; i++) {
+    const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    Rect r=hw->getViewport();
+    uint32_t tmp_width = r.width();
+    uint32_t tmp_height = r.height();
+    uint32_t count= mesh.getVertexCount();
+
+    if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE && count == 8)) {
+        // left-right
+        position[0] = tr.transform(win.left/2,  win.top);
+        position[1] = tr.transform(win.left/2,  win.bottom);
+        position[2] = tr.transform(win.right/2, win.bottom);
+        position[3] = tr.transform(win.right/2, win.top);
+        position[4] = tr.transform((tmp_width+win.left)/2,  win.top);
+        position[5] = tr.transform((tmp_width+win.left)/2, win.bottom);
+        position[6] = tr.transform((tmp_width+win.right)/2, win.bottom);
+        position[7] = tr.transform((tmp_width+win.right)/2, win.top);
+    } else if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM  && count == 8)) {
+        //top-bottom,cupute the android-window axis
+        position[0] = tr.transform(win.left,  win.top/2);
+        position[1] = tr.transform(win.left,  win.bottom/2);
+        position[2] = tr.transform(win.right, win.bottom/2);
+        position[3] = tr.transform(win.right, win.top/2);
+        position[4] = tr.transform(win.left,  (tmp_height+win.top)/2);
+        position[5] = tr.transform(win.left,  (tmp_height+win.bottom)/2);
+        position[6] = tr.transform(win.right, (tmp_height+win.bottom)/2);
+        position[7] = tr.transform(win.right, (tmp_height+win.top)/2);
+    } else {
+        position[0] = tr.transform(win.left,  win.top);
+        position[1] = tr.transform(win.left,  win.bottom);
+        position[2] = tr.transform(win.right, win.bottom);
+        position[3] = tr.transform(win.right, win.top);
+    }
+
+    for (size_t i=0 ; i<mesh.getVertexCount(); i++) {
         position[i].y = hw_h - position[i].y;
     }
 }
@@ -931,6 +996,17 @@ bool Layer::setPosition(float x, float y) {
     if (mCurrentState.transform.tx() == x && mCurrentState.transform.ty() == y)
         return false;
     mCurrentState.sequence++;
+
+    /*---Add for 3D case,the screen is divided into 2 part,so need to set the vertext in half----*/
+    const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE)) {
+        x = x/(float)2.0;
+        if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+    } else if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM)) {
+        y = y/(float)2.0;
+        if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+    }
+
     mCurrentState.transform.set(x, y);
     setTransactionFlags(eTransactionNeeded);
     return true;

@@ -34,6 +34,10 @@
 #include "Description.h"
 #include "Mesh.h"
 #include "Texture.h"
+#include <linux/compiler.h>
+
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -118,6 +122,48 @@ void GLES20RenderEngine::setViewportAndProjection(
     }
 
     glViewport(0, 0, vpw, vph);
+    mState.setProjectionMatrix(m);
+    mVpWidth = vpw;
+    mVpHeight = vph;
+}
+
+void GLES20RenderEngine::setViewportAndProjectionWithOffset(
+        size_t vpx, size_t vpy, size_t vpw, size_t vph, Rect sourceCrop, size_t hwh, bool yswap,
+        Transform::orientation_flags rotation) {
+
+    size_t l = sourceCrop.left;
+    size_t r = sourceCrop.right;
+
+    // In GL, (0, 0) is the bottom-left corner, so flip y coordinates
+    size_t t = hwh - sourceCrop.top;
+    size_t b = hwh - sourceCrop.bottom;
+
+    mat4 m;
+    if (yswap) {
+        m = mat4::ortho(l, r, t, b, 0, 1);
+    } else {
+        m = mat4::ortho(l, r, b, t, 0, 1);
+    }
+
+    // Apply custom rotation to the projection.
+    float rot90InRadians = 2.0f * static_cast<float>(M_PI) / 4.0f;
+    switch (rotation) {
+        case Transform::ROT_0:
+            break;
+        case Transform::ROT_90:
+            m = mat4::rotate(rot90InRadians, vec3(0,0,1)) * m;
+            break;
+        case Transform::ROT_180:
+            m = mat4::rotate(rot90InRadians * 2.0f, vec3(0,0,1)) * m;
+            break;
+        case Transform::ROT_270:
+            m = mat4::rotate(rot90InRadians * 3.0f, vec3(0,0,1)) * m;
+            break;
+        default:
+            break;
+    }
+
+    glViewport(vpx, vpy, vpw, vph);
     mState.setProjectionMatrix(m);
     mVpWidth = vpw;
     mVpHeight = vph;
@@ -236,7 +282,16 @@ void GLES20RenderEngine::drawMesh(const Mesh& mesh) {
             mesh.getByteStride(),
             mesh.getPositions());
 
-    glDrawArrays(mesh.getPrimitive(), 0, mesh.getVertexCount());
+    /*-----modify for 3D----*/
+    if (likely(mesh.getDrawCount() == 4)) {
+        glDrawArrays(mesh.getPrimitive(), 0, 4);
+    }
+    else if (mesh.getDrawCount() == 8) {
+       glDrawArrays(mesh.getPrimitive(), 4, 4);
+       glDrawArrays(mesh.getPrimitive(), 0, 4);
+    } else {
+       glDrawArrays(mesh.getPrimitive(), 0, mesh.getVertexCount());
+    }
 
     if (mesh.getTexCoordsSize()) {
         glDisableVertexAttribArray(Program::texCoords);
@@ -311,6 +366,77 @@ void GLES20RenderEngine::endGroup() {
     mState.setColorMatrix(mat4());
 
     // free our fbo and texture
+    glDeleteFramebuffers(1, &group.fbo);
+    glDeleteTextures(1, &group.texture);
+}
+
+void GLES20RenderEngine::beginGroupScale(int src_w, int src_h, const mat4& colorTransform) {
+
+    GLuint tname, name;
+    // create the texture
+    glGenTextures(1, &tname);
+    glBindTexture(GL_TEXTURE_2D, tname);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, src_w, src_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    // create a Framebuffer Object to render into
+    glGenFramebuffers(1, &name);
+    glBindFramebuffer(GL_FRAMEBUFFER, name);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tname, 0);
+
+    Group group;
+    group.texture = tname;
+    group.fbo = name;
+    group.width = mVpWidth;
+    group.height = mVpHeight;
+    group.colorTransform = colorTransform;
+
+    mGroupStack.push(group);
+}
+
+void GLES20RenderEngine::endGroupScale(int dst_w, int dst_h) {
+
+    const Group group(mGroupStack.top());
+    mGroupStack.pop();
+
+    // activate the previous render target
+    GLuint fbo = 0;
+    if (!mGroupStack.isEmpty()) {
+        fbo = mGroupStack.top().fbo;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    // set our state
+    Texture texture(Texture::TEXTURE_2D, group.texture);
+    texture.setDimensions(group.width, group.height);
+    glBindTexture(GL_TEXTURE_2D, group.texture);
+
+    mState.setPlaneAlpha(1.0f);
+    mState.setPremultipliedAlpha(true);
+    mState.setOpaque(false);
+    mState.setTexture(texture);
+    glDisable(GL_BLEND);
+
+    Mesh mesh(Mesh::TRIANGLE_FAN, 4, 2, 2);
+    Mesh::VertexArray<vec2> position(mesh.getPositionArray<vec2>());
+    Mesh::VertexArray<vec2> texCoord(mesh.getTexCoordArray<vec2>());
+    position[0] = vec2(0, group.height-dst_h);
+    position[1] = vec2(dst_w, group.height-dst_h);
+    position[2] = vec2(dst_w, group.height);
+    position[3] = vec2(0, group.height);
+    texCoord[0] = vec2(0, 0);
+    texCoord[1] = vec2(1, 0);
+    texCoord[2] = vec2(1, 1);
+    texCoord[3] = vec2(0, 1);
+    drawMesh(mesh);
+
+    // reset color matrix
+    mState.setColorMatrix(mat4());
+
+    // free our fbo and texture
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDeleteFramebuffers(1, &group.fbo);
     glDeleteTextures(1, &group.texture);
 }

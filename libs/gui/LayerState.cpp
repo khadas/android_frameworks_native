@@ -79,6 +79,8 @@ status_t DisplayState::write(Parcel& output) const {
     output.writeInt32(what);
     output.writeInt32(layerStack);
     output.writeInt32(orientation);
+    output.writeInt32(vFormat);
+    output.writeInt32(want3D);
     output.write(viewport);
     output.write(frame);
     output.writeInt32(width);
@@ -92,6 +94,8 @@ status_t DisplayState::read(const Parcel& input) {
     what = input.readInt32();
     layerStack = input.readInt32();
     orientation = input.readInt32();
+    vFormat = input.readInt32();
+    want3D= input.readInt32();
     input.read(viewport);
     input.read(frame);
     width = input.readInt32();

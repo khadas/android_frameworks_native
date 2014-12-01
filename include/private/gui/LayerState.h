@@ -114,7 +114,9 @@ struct DisplayState {
         eSurfaceChanged             = 0x01,
         eLayerStackChanged          = 0x02,
         eDisplayProjectionChanged   = 0x04,
-        eDisplaySizeChanged         = 0x08
+        eDisplaySizeChanged         = 0x08,
+        eVDisplaySizeChanged        = 0x10,
+        eWant3D                     = 0x20
     };
 
     uint32_t what;
@@ -122,6 +124,8 @@ struct DisplayState {
     sp<IGraphicBufferProducer> surface;
     uint32_t layerStack;
     uint32_t orientation;
+    uint32_t vFormat;
+    uint32_t want3D;
     Rect viewport;
     Rect frame;
     uint32_t width, height;

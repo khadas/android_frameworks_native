@@ -147,6 +147,9 @@ public:
     static void setDisplayLayerStack(const sp<IBinder>& token,
             uint32_t layerStack);
     static void setDisplaySize(const sp<IBinder>& token, uint32_t width, uint32_t height);
+    static void setVDisplaySize(int ,uint32_t);
+    static void setDisplay2Stereoscopic(int ,int);
+
 
     /* setDisplayProjection() defines the projection of layer stacks
      * to a given display.

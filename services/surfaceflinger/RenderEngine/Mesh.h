@@ -79,6 +79,9 @@ public:
     // return stride in floats
     size_t getStride() const;
 
+    size_t setDrawCount(size_t );
+    size_t getDrawCount() const;
+
 private:
     Mesh(const Mesh&);
     Mesh& operator = (const Mesh&);
@@ -92,6 +95,7 @@ private:
     size_t mTexCoordsSize;
     size_t mStride;
     Primitive mPrimitive;
+    size_t mDrawCount;
 };
 
 

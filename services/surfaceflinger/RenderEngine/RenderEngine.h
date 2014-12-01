@@ -92,6 +92,10 @@ public:
     virtual void checkErrors() const;
     virtual void setViewportAndProjection(size_t vpw, size_t vph,
             Rect sourceCrop, size_t hwh, bool yswap, Transform::orientation_flags rotation) = 0;
+    virtual void setViewportAndProjectionWithOffset(size_t vpx, size_t vpy, size_t vpw, size_t vph,
+                Rect sourceCrop, size_t hwh, bool yswap, Transform::orientation_flags rotation){
+        setViewportAndProjection(vpw, vph, sourceCrop, hwh, yswap, rotation);
+    }
     virtual void setupLayerBlending(bool premultipliedAlpha, bool opaque, int alpha) = 0;
     virtual void setupDimLayerBlending(int alpha) = 0;
     virtual void setupLayerTexturing(const Texture& texture) = 0;
@@ -109,6 +113,9 @@ public:
     // transformed by the given color transform when endGroup() is called.
     virtual void beginGroup(const mat4& colorTransform) = 0;
     virtual void endGroup() = 0;
+
+    virtual void beginGroupScale(int src_w, int src_h, const mat4& colorTransform){}
+    virtual void endGroupScale(int dst_w, int dst_h){}
 
     // queries
     virtual size_t getMaxTextureSize() const = 0;

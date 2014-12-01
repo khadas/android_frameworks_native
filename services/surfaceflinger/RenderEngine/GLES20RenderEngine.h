@@ -67,6 +67,8 @@ protected:
     virtual void dump(String8& result);
     virtual void setViewportAndProjection(size_t vpw, size_t vph,
             Rect sourceCrop, size_t hwh, bool yswap, Transform::orientation_flags rotation);
+    virtual void setViewportAndProjectionWithOffset(size_t vpx, size_t vpy, size_t vpw, size_t vph,
+            Rect sourceCrop, size_t hwh, bool yswap, Transform::orientation_flags rotation);
     virtual void setupLayerBlending(bool premultipliedAlpha, bool opaque, int alpha);
     virtual void setupDimLayerBlending(int alpha);
     virtual void setupLayerTexturing(const Texture& texture);
@@ -79,6 +81,9 @@ protected:
 
     virtual void beginGroup(const mat4& colorTransform);
     virtual void endGroup();
+
+    virtual void beginGroupScale(int src_w, int src_h, const mat4& colorTransform);
+    virtual void endGroupScale(int dst_w, int dst_h);
 
     virtual size_t getMaxTextureSize() const;
     virtual size_t getMaxViewportDims() const;

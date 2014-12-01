@@ -57,6 +57,17 @@ int android::getDisplayHwRotation(int display_type){
     return rotation;
 }
 
+
+//when we use a vertical panel, but the told android to use it as a horizontal panel
+int android::getDisplayWH(int *w, int *h){
+    char valuep[PROPERTY_VALUE_MAX];
+    property_get("const.window.w", valuep, "0") ;
+    *w = atoi(valuep);
+    property_get("const.window.h", valuep, "0") ;
+    *h = atoi(valuep);
+    return 1;
+}
+
 /*
  * Initialize the display to the specified values.
  *
@@ -106,8 +117,17 @@ DisplayDevice::DisplayDevice(
         config = RenderEngine::chooseEglConfig(display, format);
     }
     surface = eglCreateWindowSurface(display, config, window, NULL);
-    eglQuerySurface(display, surface, EGL_WIDTH,  &mDisplayWidth);
-    eglQuerySurface(display, surface, EGL_HEIGHT, &mDisplayHeight);
+    eglQuerySurface(display, surface, EGL_WIDTH,  &mFBWidth);
+    eglQuerySurface(display, surface, EGL_HEIGHT, &mFBHeight);
+
+
+    //get visible display size
+    getDisplayWH(&mDisplayWidth, &mDisplayHeight);
+
+    if (mDisplayWidth == 0 || mDisplayHeight == 0) {
+        mDisplayWidth = mFBWidth;
+        mDisplayHeight = mFBHeight;
+    }
 
     // Make sure that composition can never be stalled by a virtual display
     // consumer that isn't processing buffers fast enough. We have to do this
@@ -301,13 +321,31 @@ EGLBoolean DisplayDevice::makeCurrent(EGLDisplay dpy, EGLContext ctx) const {
 }
 
 void DisplayDevice::setViewportAndProjection() const {
-    size_t w = mDisplayWidth;
-    size_t h = mDisplayHeight;
+    int w,h,x,y;
+
+    if (mFullViewPort && mFBWidth) {
+        //should with valid FB size
+        x = 0;
+        y = 0;
+        w = mFBWidth;
+        h = mFBHeight;
+    } else {
+        //show at the top-left corn
+        x = 0;
+        y = mFBHeight - mDisplayHeight;
+        w = mDisplayWidth;
+        h = mDisplayHeight;
+    }
     Rect sourceCrop(0, 0, w, h);
-    mFlinger->getRenderEngine().setViewportAndProjection(w, h, sourceCrop, h,
-        false, Transform::ROT_0);
+
+    mFlinger->getRenderEngine().setViewportAndProjectionWithOffset(x, y, w, h, sourceCrop, h,
+                false, Transform::ROT_0);
 }
 
+void DisplayDevice::useFullViewPort(bool bUseFullViewPort) const {
+    mFullViewPort = bUseFullViewPort;
+    setViewportAndProjection();
+}
 // ----------------------------------------------------------------------------
 
 void DisplayDevice::setVisibleLayersSortedByZ(const Vector< sp<Layer> >& layers) {

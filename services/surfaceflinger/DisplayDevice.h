@@ -148,6 +148,7 @@ public:
     EGLBoolean makeCurrent(EGLDisplay dpy, EGLContext ctx) const;
     void setViewportAndProjection() const;
 
+    void useFullViewPort(bool bUseFullViewPort) const ;
     /* ------------------------------------------------------------------------
      * Display power mode management.
      */
@@ -226,11 +227,15 @@ private:
     int mPowerMode;
     // Current active config
     int mActiveConfig;
-    int  mScreenRotation;
+    int mScreenRotation;
+    //for record frame buffer width,height.
+    int mFBWidth;
+    int mFBHeight;
+    mutable bool mFullViewPort;
 };
 
 int getDisplayHwRotation(int display_type);
-
+int getDisplayWH(int *w, int *h);
 }; // namespace android
 
 #endif // ANDROID_DISPLAY_DEVICE_H

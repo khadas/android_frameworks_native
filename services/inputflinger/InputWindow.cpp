@@ -32,7 +32,8 @@ void InputWindowInfo::addTouchableRegion(const Rect& region) {
 }
 
 bool InputWindowInfo::touchableRegionContainsPoint(int32_t x, int32_t y) const {
-    return touchableRegion.contains(x,y);
+    const Rect r(touchableRegion.getBounds());
+    return touchableRegion.contains(x + r.left, y + r.top);
 }
 
 bool InputWindowInfo::frameContainsPoint(int32_t x, int32_t y) const {

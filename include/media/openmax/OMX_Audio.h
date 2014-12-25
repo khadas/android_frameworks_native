@@ -111,7 +111,7 @@ typedef enum OMX_AUDIO_CODINGTYPE {
     OMX_AUDIO_CodingVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
     OMX_AUDIO_CodingDDP               = 0x7F001000, /**< Any variant of DDP encoded data */
     OMX_AUDIO_CodingTRUEHD,                         /**< Any variant of TRUEHD encoded data */
-    OMX_AUDIO_CodingCOOK,                           /**< Any variant of REAL COOK encoded data */
+    OMX_AUDIO_CodingFFMPEG,/*for all ffmpeg decoder*/
     OMX_AUDIO_CodingMax = 0x7FFFFFFF
 } OMX_AUDIO_CODINGTYPE;
 
@@ -496,7 +496,7 @@ typedef struct OMX_AUDIO_PARAM_RATYPE {
 } OMX_AUDIO_PARAM_RATYPE; 
 
 /** Cook params */
-typedef struct OMX_AUDIO_PARAM_COOKTYPE {
+typedef struct OMX_AUDIO_PARAM_FFMPEGTYPE {
     OMX_U32 nSize;              /**< Size of this structure, in Bytes */
     OMX_VERSIONTYPE nVersion;   /**< OMX specification version information */
     OMX_U32 nPortIndex;         /**< Port that this structure applies to */
@@ -506,9 +506,10 @@ typedef struct OMX_AUDIO_PARAM_COOKTYPE {
     OMX_U32 nSamplingRate;      /**< is the sampling rate of the source data */
     OMX_U32 nBitPerSample;      /**< Bit per sample */
     OMX_U32 nBlockAlign;        /**< block align */
-    OMX_U32 nExtraData_Size;    /**< extra data size */
-    OMX_U8 *nExtraData;         /**< extra data point */
-} OMX_AUDIO_PARAM_COOKTYPE;
+    OMX_U32 nCodecID;           /**<codec id **/
+    OMX_U32 nExtraData_Size;     /** extra data size **/
+    OMX_U8 *nExtraData;          /** extra data point **/
+} OMX_AUDIO_PARAM_FFMPEGTYPE;
 
 /** SBC Allocation Method Type */
 typedef enum OMX_AUDIO_SBCALLOCMETHODTYPE {

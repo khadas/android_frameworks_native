@@ -163,7 +163,7 @@ typedef enum OMX_INDEXTYPE {
     OMX_IndexParamAudioDtshd,               /**< reference: OMX_AUDIO_PARAM_DTSHDTYPE */
     OMX_IndexParamAudioApe,                 /**< reference: OMX_AUDIO_PARAM_APETYPE */
     OMX_IndexParamAudioDolbyAudio,          /**< reference: OMX_AUDIO_PARAM_DOLBYAUDIO */
-    OMX_IndexParamAudioCook,
+    OMX_IndexParamAudioFFmpeg,
 
     /* Image specific parameters and configurations */
     OMX_IndexImageStartUnused = 0x05000000,

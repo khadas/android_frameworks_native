@@ -737,25 +737,37 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
     Mesh::VertexArray<vec2> texCoords(mMesh.getTexCoordArray<vec2>());
 
     const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    const float magicNum = 0.0001f;
     if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE )) {
-        texCoords[0] = vec2(left, 1.0f - top);
-        texCoords[1] = vec2(left, 1.0f - bottom);
-        texCoords[2] = vec2(right, 1.0f - bottom);
-        texCoords[3] = vec2(right, 1.0f - top);
-        texCoords[4] = vec2(left, 1.0f - top);
-        texCoords[5] = vec2(left, 1.0f - bottom);
-        texCoords[6] = vec2(right, 1.0f - bottom);
-        texCoords[7] = vec2(right, 1.0f - top);
+        texCoords[0] = vec2(left - magicNum, 1.0f - top);
+        texCoords[1] = vec2(left - magicNum, 1.0f - bottom);
+        texCoords[2] = vec2(right - magicNum, 1.0f - bottom);
+        texCoords[3] = vec2(right - magicNum, 1.0f - top);
+        texCoords[4] = vec2(left + magicNum, 1.0f - top);
+        texCoords[5] = vec2(left + magicNum, 1.0f - bottom);
+        texCoords[6] = vec2(right + magicNum, 1.0f - bottom);
+        texCoords[7] = vec2(right + magicNum, 1.0f - top);
         mMesh.setDrawCount(8);
     } else if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM )) {
-        texCoords[0] = vec2(left, 1.0f - top);
-        texCoords[1] = vec2(left, 1.0f - bottom);
-        texCoords[2] = vec2(right, 1.0f - bottom);
-        texCoords[3] = vec2(right, 1.0f - top);
-        texCoords[4] = vec2(left, 1.0f - top);
-        texCoords[5] = vec2(left, 1.0f - bottom);
-        texCoords[6] = vec2(right, 1.0f - bottom);
-        texCoords[7] = vec2(right, 1.0f - top);
+        if (win.bottom != s.active.h) {
+            texCoords[0] = vec2(left, 1.0f - top);
+            texCoords[1] = vec2(left, 1.0f - bottom);
+            texCoords[2] = vec2(right, 1.0f - bottom);
+            texCoords[3] = vec2(right, 1.0f - top);
+            texCoords[4] = vec2(left, 1.0f - top);
+            texCoords[5] = vec2(left, 1.0f - bottom);
+            texCoords[6] = vec2(right, 1.0f - bottom);
+            texCoords[7] = vec2(right, 1.0f - top);
+        } else {
+            texCoords[0] = vec2(left, (1.0f - top));
+            texCoords[1] = vec2(left, (1.0f - (bottom - magicNum)));
+            texCoords[2] = vec2(right, (1.0f - (bottom - magicNum)));
+            texCoords[3] = vec2(right, (1.0f - top));
+            texCoords[4] = vec2(left, (1.0f - top));
+            texCoords[5] = vec2(left, (1.0f - (bottom - magicNum)));
+            texCoords[6] = vec2(right, (1.0f - (bottom - magicNum)));
+            texCoords[7] = vec2(right, (1.0f - top));
+        }
         mMesh.setDrawCount(8);
     } else {
         texCoords[0] = vec2(left, 1.0f - top);
@@ -848,20 +860,20 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
         position[1] = tr.transform(win.left/2,  win.bottom);
         position[2] = tr.transform(win.right/2, win.bottom);
         position[3] = tr.transform(win.right/2, win.top);
-        position[4] = tr.transform((tmp_width+win.left)/2,  win.top);
+        position[4] = tr.transform((tmp_width+win.left)/2, win.top);
         position[5] = tr.transform((tmp_width+win.left)/2, win.bottom);
         position[6] = tr.transform((tmp_width+win.right)/2, win.bottom);
         position[7] = tr.transform((tmp_width+win.right)/2, win.top);
     } else if (unlikely(disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM  && count == 8)) {
-        //top-bottom,cupute the android-window axis
-        position[0] = tr.transform(win.left,  win.top/2);
-        position[1] = tr.transform(win.left,  win.bottom/2);
-        position[2] = tr.transform(win.right, win.bottom/2);
-        position[3] = tr.transform(win.right, win.top/2);
-        position[4] = tr.transform(win.left,  (tmp_height+win.top)/2);
-        position[5] = tr.transform(win.left,  (tmp_height+win.bottom)/2);
-        position[6] = tr.transform(win.right, (tmp_height+win.bottom)/2);
-        position[7] = tr.transform(win.right, (tmp_height+win.top)/2);
+        // top-bottom,cupute the android-window axis
+        position[0] = tr.transform(win.left,  (win.top+1)/2);
+        position[1] = tr.transform(win.left,  (win.bottom+1)/2);
+        position[2] = tr.transform(win.right, (win.bottom+1)/2);
+        position[3] = tr.transform(win.right, (win.top+1)/2);
+        position[4] = tr.transform(win.left,  (tmp_height+win.top+1)/2);
+        position[5] = tr.transform(win.left,  (tmp_height+win.bottom+1)/2);
+        position[6] = tr.transform(win.right, (tmp_height+win.bottom+1)/2);
+        position[7] = tr.transform(win.right, (tmp_height+win.top+1)/2);
     } else {
         position[0] = tr.transform(win.left,  win.top);
         position[1] = tr.transform(win.left,  win.bottom);

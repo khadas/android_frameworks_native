@@ -156,6 +156,8 @@ typedef enum OMX_INDEXTYPE {
     OMX_IndexConfigAudioEqualizer,          /**< reference: OMX_AUDIO_CONFIG_EQUALIZERTYPE */
     OMX_IndexConfigAudioReverberation,      /**< reference: OMX_AUDIO_CONFIG_REVERBERATIONTYPE */
     OMX_IndexConfigAudioChannelVolume,      /**< reference: OMX_AUDIO_CONFIG_CHANNELVOLUMETYPE */
+    OMX_IndexConfigAudioDtshdDecoderInfo,
+    OMX_IndexParamAudioTruehd,
 
     // specific added by amlogic to enhance omx to support more audio codec format
     OMX_IndexParamAudioAsf = 0x04400000,    /**< reference: OMX_AUDIO_PARAM_WMASTDTYPE */

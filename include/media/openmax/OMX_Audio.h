@@ -429,7 +429,18 @@ typedef struct OMX_AUDIO_PARAM_DTSHDTYPE {
     OMX_U32 nSamplesPerSec;
     OMX_U16 bitwidth;
     OMX_BOOL bExtendFormat;   /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data */
+    int HwHDPCMoutCap;
+    int HwMulChoutCap;
 } OMX_AUDIO_PARAM_DTSHDTYPE;
+
+typedef struct OMX_AUDIO_PATAM_DTSHD_IEC958INFOTYPE{
+	 OMX_U32 VersionNum;
+	 OMX_U32 DTSHDIEC958_FS;
+	 OMX_U32 DTSHDIEC958_PktFrmSize;
+	 OMX_U32 DTSHDIEC958_PktType;
+	 OMX_U32 DTSHDPCM_SamsInFrmAtMaxSR;
+}OMX_AUDIO_PATAM_DTSHD_IEC958INFOTYPE;
+
 
 typedef struct OMX_AUDIO_PARAM_DOLBYAUDIOTYPE {
     OMX_U32 nSize;            /**< size of the structure in bytes */
@@ -438,6 +449,14 @@ typedef struct OMX_AUDIO_PARAM_DOLBYAUDIOTYPE {
     OMX_BOOL bExtendFormat;   /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data */
     OMX_U32 nAudioCodec;      /**< AudioCodec.  1.ac3 2.eac3. */
 } OMX_AUDIO_PARAM_DOLBYAUDIOTYPE;
+
+typedef struct OMX_AUDIO_PARAM_TRUEHDTYPE {
+	 OMX_U32 nSize; /**< size of the structure in bytes */
+	 OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+	 OMX_U32 nPortIndex; /**< port that this structure applies to */
+	 OMX_BOOL bExtendFormat; /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data*/
+	 OMX_U32 nAudioCodec; /**< AudioCodec. 1.ac3 2.eac3. */
+} OMX_AUDIO_PARAM_TRUEHDTYPE;
 
 typedef struct OMX_AUDIO_PARAM_APETYPE {
     OMX_U32 nSize;            /**< Size of this structure, in Bytes */

@@ -51,6 +51,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
+#include <fcntl.h>
+
+#include <cutils/properties.h>
 
 #define INDENT "  "
 #define INDENT2 "    "
@@ -64,6 +67,9 @@ namespace android {
 
 // Maximum number of slots supported when using the slot-based Multitouch Protocol B.
 static const size_t MAX_SLOTS = 32;
+
+static char g_dmode_str[32];
+static char g_daxis_str[32];
 
 // --- Static Functions ---
 
@@ -684,6 +690,19 @@ void InputReader::requestRefreshConfiguration(uint32_t changes) {
     }
 }
 
+void InputReader::setTvOutStatus(bool enabled){
+    AutoMutex _l(mLock);
+    ALOGI("InputReader::setTvOutStatus %d",enabled);
+
+    size_t numDevices = mDevices.size();
+    for (size_t i = 0; i < numDevices; i++) {
+        InputDevice* device = mDevices.valueAt(i);
+        if (!device->isIgnored()) {
+            device->setTvOutStatus(enabled);
+        }
+    }
+}
+
 void InputReader::vibrate(int32_t deviceId, const nsecs_t* pattern, size_t patternSize,
         ssize_t repeat, int32_t token) {
     AutoMutex _l(mLock);
@@ -1105,6 +1124,13 @@ void InputDevice::notifyReset(nsecs_t when) {
     mContext->getListener()->notifyDeviceReset(&args);
 }
 
+void InputDevice::setTvOutStatus(bool enabled){
+    size_t numMappers = mMappers.size();
+    for (size_t i = 0; i < numMappers; i++) {
+        InputMapper* mapper = mMappers[i];
+        mapper->setTvOutStatus(enabled);
+    }
+}
 
 // --- CursorButtonAccumulator ---
 
@@ -1793,6 +1819,8 @@ int32_t InputMapper::getMetaState() {
 void InputMapper::fadePointer() {
 }
 
+void InputMapper::setTvOutStatus(bool enabled){
+}
 status_t InputMapper::getAbsoluteAxisInfo(int32_t axis, RawAbsoluteAxisInfo* axisInfo) {
     return getEventHub()->getAbsoluteAxisInfo(getDeviceId(), axis, axisInfo);
 }
@@ -2593,6 +2621,7 @@ void CursorInputMapper::fadePointer() {
 TouchInputMapper::TouchInputMapper(InputDevice* device) :
         InputMapper(device),
         mSource(0), mDeviceMode(DEVICE_MODE_DISABLED),
+        mTvOutStatus(false), mPadmouseStatus(false),mHdimiCfgChange(false),
         mSurfaceWidth(-1), mSurfaceHeight(-1), mSurfaceLeft(0), mSurfaceTop(0),
         mSurfaceOrientation(DISPLAY_ORIENTATION_0) {
 }
@@ -5680,6 +5709,73 @@ void TouchInputMapper::dispatchMotion(nsecs_t when, uint32_t policyFlags, uint32
             action, flags, metaState, buttonState, edgeFlags,
             mViewport.displayId, pointerCount, pointerProperties, pointerCoords,
             xPrecision, yPrecision, downTime);
+
+    // resize touch coords for (dual_display && freescale_disabled)
+    // rw.vout.scale: off/freescale_disabled, on/freescale_enabled
+    char prop_dual[PROPERTY_VALUE_MAX];
+    if (!mPadmouseStatus && property_get("ro.vout.dualdisplay2", prop_dual, "false")
+        && (strcmp(prop_dual, "true") == 0)
+        && (action == AMOTION_EVENT_ACTION_DOWN
+            || action == AMOTION_EVENT_ACTION_UP
+            || action == AMOTION_EVENT_ACTION_MOVE)) {
+
+        bool  resize_touch = false;
+        if (strncmp(g_dmode_str, "panel", 5) != 0) {
+            char prop[PROPERTY_VALUE_MAX];
+            if (property_get("rw.vout.scale", prop, "on")
+                && strcmp(prop, "off") == 0) {
+                resize_touch = true;
+            }
+        }
+        if (resize_touch) {
+            int x = 0, y = 0, w = 0, h = 0;
+            if (sscanf(g_daxis_str, "%d %d %d %d", &x,&y,&w,&h) > 0) {
+                int ww = w, hh = h;
+                if (strncmp(g_dmode_str, "1080p", 5) == 0) {
+                    ww = 1920;
+                    hh = 1080;
+                } else if (strncmp(g_dmode_str, "720p", 4) == 0) {
+                    ww = 1280;
+                    hh = 720;
+                } else if (strncmp(g_dmode_str, "480p", 4) == 0) {
+                    ww = 720;
+                    hh = 480;
+                }
+
+                if (ww >= w) x = (ww - w) / 2;
+                if (hh >= h) y = (hh - h) / 2;
+
+                for (uint32_t i = 0; i < args.pointerCount; i++) {
+                    float coords_x = args.pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_X);
+                    float coords_y = args.pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_Y);
+                    if (ww >= w && hh >= h) {   //1024*600 < 1280*720
+                        coords_x = coords_x*(w + 2*x)/w;
+                        coords_y = coords_y*(h + 2*y)/h;
+                        coords_x = (coords_x - x)*(w + 2*x)/w;
+                        coords_y = (coords_y - y)*(h + 2*y)/h;
+                        coords_x = coords_x*w/(w + 2*x);
+                        coords_y = coords_y*h/(h + 2*y);
+                    } else if (ww >= w && hh < h) {   //1024*768 > 1280*720
+                        coords_x = coords_x*(w + 2*x)/w;
+                        coords_y = coords_y*hh/h;
+                        coords_x = (coords_x - x)*(w + 2*x)/w;
+                        coords_y = (coords_y - 0)*hh/h;
+                        coords_x = coords_x*w/(w + 2*x);
+                        coords_y = coords_y*h/hh;
+                    } else {                    //1024*600 > 720*480
+                        coords_x = coords_x*ww/w;
+                        coords_y = coords_y*hh/h;
+                        coords_x = (coords_x - 0)*ww/w;
+                        coords_y = (coords_y - 0)*hh/h;
+                        coords_x = coords_x*w/ww;
+                        coords_y = coords_y*h/hh;
+                    }
+                    args.pointerCoords[i].setAxisValue(AMOTION_EVENT_AXIS_X, coords_x);
+                    args.pointerCoords[i].setAxisValue(AMOTION_EVENT_AXIS_Y, coords_y);
+                }
+            }
+        }
+    }
     getListener()->notifyMotion(&args);
 }
 
@@ -5717,7 +5813,60 @@ void TouchInputMapper::fadePointer() {
     }
 }
 
-bool TouchInputMapper::isPointInsideSurface(int32_t x, int32_t y) {
+void TouchInputMapper::setTvOutStatus(bool enabled){
+    bool padmouseStatus = mPadmouseStatus;
+    if ( mTvOutStatus != enabled) {
+        mTvOutStatus = enabled;
+        String8 padmouseString;
+        if (mTvOutStatus) {
+            if ( !getDevice()->getConfiguration().tryGetProperty(String8("touch.tvout.padmouse"),
+                 padmouseString) || padmouseString == "true" ) {
+                    //mouse style: pointer or spot
+                    mParameters.deviceType = Parameters::DEVICE_TYPE_POINTER;
+                    padmouseStatus = true;
+                    mHdimiCfgChange = true;
+                    ALOGW(" tvout touch screen set to padmouse mode ");
+            }
+        }
+        else if(mPadmouseStatus){
+            configureParameters();
+            padmouseStatus = false;
+        }
+
+        if (mPadmouseStatus != padmouseStatus) {
+            mPadmouseStatus = padmouseStatus;
+            nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
+            bool outReset = true;
+            configureSurface(now, &outReset);
+            reset(now);
+        }
+    }
+
+    // dual display
+    char prop_dual[PROPERTY_VALUE_MAX];
+    if (property_get("ro.vout.dualdisplay2", prop_dual, "false")
+        && (strcmp(prop_dual, "true") == 0)) {
+        int fd_dmode = -1;
+        memset(g_dmode_str,0,32);
+        if ((fd_dmode = open("/sys/class/display/mode", O_RDONLY)) >= 0) {
+            int ret_len = read(fd_dmode, g_dmode_str, sizeof(g_dmode_str));
+            close(fd_dmode);
+        } else {
+            ALOGE("open /sys/class/display/mode.");
+        }
+
+        int fd_daxis = -1;
+        memset(g_daxis_str,0,32);
+        if ((fd_daxis = open("/sys/class/display/axis", O_RDONLY)) >= 0) {
+            int ret_len = read(fd_daxis, g_daxis_str, sizeof(g_daxis_str));
+            close(fd_daxis);
+        } else {
+            ALOGE("open /sys/class/display/mode.");
+        }
+    }
+}
+
+ bool TouchInputMapper::isPointInsideSurface(int32_t x, int32_t y) {
     return x >= mRawPointerAxes.x.minValue && x <= mRawPointerAxes.x.maxValue
             && y >= mRawPointerAxes.y.minValue && y <= mRawPointerAxes.y.maxValue;
 }

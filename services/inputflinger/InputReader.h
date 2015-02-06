@@ -369,6 +369,8 @@ public:
     virtual void vibrate(int32_t deviceId, const nsecs_t* pattern, size_t patternSize,
             ssize_t repeat, int32_t token) = 0;
     virtual void cancelVibrate(int32_t deviceId, int32_t token) = 0;
+    /* Set TV Out Status */
+    virtual void setTvOutStatus(bool enabled) = 0;
 };
 
 
@@ -438,6 +440,7 @@ public:
     virtual void vibrate(int32_t deviceId, const nsecs_t* pattern, size_t patternSize,
             ssize_t repeat, int32_t token);
     virtual void cancelVibrate(int32_t deviceId, int32_t token);
+    virtual void setTvOutStatus(bool enabled);
 
 protected:
     // These members are protected so they can be instrumented by test cases.
@@ -580,6 +583,8 @@ public:
     void bumpGeneration();
 
     void notifyReset(nsecs_t when);
+
+    void setTvOutStatus(bool enabled);
 
     inline const PropertyMap& getConfiguration() { return mConfiguration; }
     inline EventHubInterface* getEventHub() { return mContext->getEventHub(); }
@@ -978,6 +983,8 @@ public:
 
     virtual void fadePointer();
 
+    virtual void setTvOutStatus(bool enabled);
+
 protected:
     InputDevice* mDevice;
     InputReaderContext* mContext;
@@ -1193,6 +1200,8 @@ public:
     virtual void fadePointer();
     virtual void timeoutExpired(nsecs_t when);
 
+    void setTvOutStatus(bool enabled);
+
 protected:
     CursorButtonAccumulator mCursorButtonAccumulator;
     CursorScrollAccumulator mCursorScrollAccumulator;
@@ -1216,6 +1225,15 @@ protected:
 
     // Input sources and device mode.
     uint32_t mSource;
+
+    // Tv out status
+    bool mTvOutStatus;
+
+    // Padmouse status
+    bool mPadmouseStatus;
+
+    // hdmi change configuration
+    bool mHdimiCfgChange;
 
     enum DeviceMode {
         DEVICE_MODE_DISABLED, // input is disabled

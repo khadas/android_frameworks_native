@@ -2385,7 +2385,7 @@ uint32_t SurfaceFlinger::setDisplayStateLocked(const DisplayState& s)
         }
         if (what & DisplayState::eVDisplaySizeChanged) {
             if (disp.vFormat != s.vFormat) {
-                ALOGD("---eVDisplaySizeChanged changed [dpyIdx:%d] vFormat: %d",dpyIdx,s.vFormat);
+                ALOGD("---eVDisplaySizeChanged changed [dpyIdx:%zd] vFormat: %d", dpyIdx, s.vFormat);
                 disp.vX = getDisplayFormatInfo(s.vFormat,DISPLAY_X);
                 disp.vY = getDisplayFormatInfo(s.vFormat,DISPLAY_Y);
                 disp.vWidth = getDisplayFormatInfo(s.vFormat,DISPLAY_WIDTH);

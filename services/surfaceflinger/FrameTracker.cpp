@@ -16,6 +16,7 @@
 
 // This is needed for stdint.h to define INT64_MAX in C++
 #define __STDC_LIMIT_MACROS
+#define FPS_CAL_COUNTS (16)
 
 #include <inttypes.h>
 
@@ -246,6 +247,57 @@ void FrameTracker::dumpStats(String8& result) const {
             mFrameRecords[index].frameReadyTime);
     }
     result.append("\n");
+}
+
+
+#define GetValidFrameIdx(start, step, chkLoop) \
+    do { \
+        start = (start + step) % NUM_FRAME_RECORDS; \
+        chkLoop--; \
+        if (chkLoop == 0) \
+            break; \
+    } while(isFrameValidLocked(start) == false);
+
+void FrameTracker::dumpIntimeFps(bool bFullInfo )  {
+    float fps = 0.0;
+    int iChkMax = 5;
+    int iChkstep = -1;
+    //find the latest displayed buffer
+    size_t iDisplayed = (mOffset+NUM_FRAME_RECORDS -1) % NUM_FRAME_RECORDS; //default displayed is the current buffer
+    GetValidFrameIdx(iDisplayed, iChkstep, iChkMax);
+    if (iChkMax == 0) {
+        String8 frameInfo;
+        dumpStats(frameInfo);
+        ALOGD("No valid data : %s", frameInfo.string());
+        return ;
+    }
+
+    //to dump
+    size_t iPrev= (iDisplayed-1) % NUM_FRAME_RECORDS;
+
+    if (isFrameValidLocked(iPrev)) {
+        fps = 1000000000 / (mFrameRecords[iDisplayed].actualPresentTime -mFrameRecords[iPrev].actualPresentTime);
+        ALOGD("INS-FPS (%zu): (%" PRId64 " ~ %" PRId64 ")/(1:%d) = %f ", mOffset, mFrameRecords[iPrev].actualPresentTime, mFrameRecords[iDisplayed].actualPresentTime, iPrev, fps);
+
+        if (bFullInfo == true) {
+            size_t framecount = 0;
+            size_t iAverStart= (iDisplayed + NUM_FRAME_RECORDS-FPS_CAL_COUNTS ) % NUM_FRAME_RECORDS;
+
+            iChkMax = FPS_CAL_COUNTS - 2;
+            iChkstep = 1;
+            GetValidFrameIdx(iAverStart, iChkstep, iChkMax);
+            if (iChkMax == 0) {
+                String8 frameInfo;
+                dumpStats(frameInfo);
+                ALOGD("Too few frames to cal average fps : %s",frameInfo.string());
+                return ;
+            }
+
+            framecount = ( iDisplayed + NUM_FRAME_RECORDS -iAverStart ) % NUM_FRAME_RECORDS;
+            fps = 1000000000 / ((mFrameRecords[iDisplayed].actualPresentTime -mFrameRecords[iAverStart].actualPresentTime ) / framecount );
+            ALOGD("AVR-FPS (%zu): (%" PRId64 " ~ %" PRId64 ")/(%zu: %zu - %zu) = %f ", mOffset, mFrameRecords[iAverStart].actualPresentTime, mFrameRecords[iDisplayed].actualPresentTime, framecount, iAverStart, iDisplayed, fps);
+        }
+    }
 }
 
 } // namespace android

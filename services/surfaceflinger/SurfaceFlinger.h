@@ -552,6 +552,9 @@ private:
     uint32_t mFormat;
     uint32_t  mLastFormat;
     bool mLastNeed2xscale;
+
+    FrameTracker mFpsTracker;
+    bool mEnableFps;
 };
 
 }; // namespace android

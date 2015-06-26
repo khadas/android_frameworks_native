@@ -91,6 +91,9 @@ public:
     // dumpStats dump appends the current frame display time history to the result string.
     void dumpStats(String8& result) const;
 
+    //dump in-time fps and average fps
+    void dumpIntimeFps(bool bFullInfo);
+
 private:
     struct FrameRecord {
         FrameRecord() :

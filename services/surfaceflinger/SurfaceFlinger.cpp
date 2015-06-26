@@ -173,6 +173,9 @@ SurfaceFlinger::SurfaceFlinger()
 {
     ALOGI("SurfaceFlinger is starting");
 
+    //disable dump fps;
+    mEnableFps = false;
+
     // debugging stuff...
     char value[PROPERTY_VALUE_MAX];
 
@@ -192,6 +195,7 @@ SurfaceFlinger::SurfaceFlinger()
     }
     ALOGI_IF(mDebugRegion, "showupdates enabled");
     ALOGI_IF(mDebugDDMS, "DDMS debugging enabled");
+
 }
 
 void SurfaceFlinger::onFirstRef()
@@ -1008,6 +1012,18 @@ void SurfaceFlinger::postComposition()
         if (hw->isDisplayOn()) {
             enableHardwareVsync();
         }
+    }
+
+    if (mEnableFps) {
+        if (presentFence->isValid()) {
+            mFpsTracker.setActualPresentFence(presentFence);
+        } else {
+            nsecs_t presentTime = hwc.getRefreshTimestamp(HWC_DISPLAY_PRIMARY);
+            mFpsTracker.setActualPresentTime(presentTime);
+        }
+
+        mFpsTracker.advanceFrame();
+        mFpsTracker.dumpIntimeFps(false);
     }
 
     if (mAnimCompositionPending) {
@@ -2606,6 +2622,7 @@ void SurfaceFlinger::onInitializeDisplays() {
     const nsecs_t period =
             getHwComposer().getRefreshPeriod(HWC_DISPLAY_PRIMARY);
     mAnimFrameTracker.setDisplayRefreshPeriod(period);
+    mFpsTracker.setDisplayRefreshPeriod(period);
 }
 
 void SurfaceFlinger::initializeDisplays() {
@@ -2751,6 +2768,30 @@ status_t SurfaceFlinger::dump(int fd, const Vector<String16>& args)
                     (args[index] == String16("--latency"))) {
                 index++;
                 dumpStatsLocked(args, index, result);
+                dumpAll = false;
+            }
+
+            if ((index < numArgs) &&
+                    (args[index] == String16("--fps"))) {
+                index++;
+
+                if ((index < numArgs) && (args[index] == String16("start")) ) {
+                    if (mEnableFps == false) {
+                        mEnableFps = true;
+                        mFpsTracker.clearStats();
+                    }
+                } else if ((index < numArgs) && (args[index] == String16("stop")) ) {
+                    if (mEnableFps) {
+                        mEnableFps = false;
+                        result.append("Dump tracked fps data: \n");
+                        mFpsTracker.dumpStats(result);
+                     }
+                } else {
+                    result.append("fps dump use 'dumpsys SurfaceFlinger --fps start/stop', just dump frames data now: \n ");
+                    mFpsTracker.dumpStats(result);
+                }
+
+                index++;
                 dumpAll = false;
             }
 

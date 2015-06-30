@@ -277,7 +277,9 @@ void FrameTracker::dumpIntimeFps(bool bFullInfo )  {
 
     if (isFrameValidLocked(iPrev)) {
         fps = 1000000000 / (mFrameRecords[iDisplayed].actualPresentTime -mFrameRecords[iPrev].actualPresentTime);
-        ALOGD("INS-FPS (%zu): (%" PRId64 " ~ %" PRId64 ")/(1:%d) = %f ", mOffset, mFrameRecords[iPrev].actualPresentTime, mFrameRecords[iDisplayed].actualPresentTime, iPrev, fps);
+        ALOGD("INS-FPS (%zu): (%" PRId64 " ~ %" PRId64 ")/(1:%zu) = %f ",
+            mOffset, mFrameRecords[iPrev].actualPresentTime,
+            mFrameRecords[iDisplayed].actualPresentTime, iPrev, fps);
 
         if (bFullInfo == true) {
             size_t framecount = 0;
@@ -295,7 +297,9 @@ void FrameTracker::dumpIntimeFps(bool bFullInfo )  {
 
             framecount = ( iDisplayed + NUM_FRAME_RECORDS -iAverStart ) % NUM_FRAME_RECORDS;
             fps = 1000000000 / ((mFrameRecords[iDisplayed].actualPresentTime -mFrameRecords[iAverStart].actualPresentTime ) / framecount );
-            ALOGD("AVR-FPS (%zu): (%" PRId64 " ~ %" PRId64 ")/(%zu: %zu - %zu) = %f ", mOffset, mFrameRecords[iAverStart].actualPresentTime, mFrameRecords[iDisplayed].actualPresentTime, framecount, iAverStart, iDisplayed, fps);
+            ALOGD("AVR-FPS (%zu): (%" PRId64 " ~ %" PRId64 ")/(%zu: %zu - %zu) = %f ",
+                mOffset, mFrameRecords[iAverStart].actualPresentTime,
+                mFrameRecords[iDisplayed].actualPresentTime, framecount, iAverStart, iDisplayed, fps);
         }
     }
 }

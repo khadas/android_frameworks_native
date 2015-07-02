@@ -1092,6 +1092,10 @@ int dexopt(const char *apk_path, uid_t uid, bool is_public,
     return 0;
 
 fail:
+    if (swap_fd > 0) {
+        close(swap_fd);
+    }
+
     if (out_fd >= 0) {
         close(out_fd);
         unlink(out_path);

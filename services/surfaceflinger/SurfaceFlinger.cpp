@@ -2096,7 +2096,11 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
             // remove where there are opaque FB layers. however, on some
             // GPUs doing a "clean slate" clear might be more efficient.
             // We'll revisit later if needed.
-            engine.clearWithColor(0, 0, 0, 0);
+            if (isVideoBufUsed()) {
+                engine.clearWithColor(0, 0, 0, 0);
+            } else {
+                engine.clearWithColor(0, 0, 0, 1);
+            }
         } else {
             // we start with the whole screen area
             const Region bounds(hw->getBounds());

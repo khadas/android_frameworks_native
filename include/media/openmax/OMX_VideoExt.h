@@ -40,6 +40,15 @@ extern "C" {
  */
 #include <OMX_Core.h>
 
+typedef enum OMX_VIDEO_CODINGEXTTYPE {
+    OMX_VIDEO_ExtCodingUnused = OMX_VIDEO_CodingKhronosExtensions,
+    OMX_VIDEO_CodingVC1,
+    OMX_VIDEO_CodingVP6,        /**< VP6 */
+    OMX_VIDEO_CodingMSMPEG4,    /**< MSMPEG4 */
+    OMX_VIDEO_CodingSorenson,  /**< Sorenson codec*/
+    OMX_VIDEO_CodingWMV3,
+} OMX_VIDEO_CODINGEXTTYPE;
+
 /** NALU Formats */
 typedef enum OMX_NALUFORMATSTYPE {
     OMX_NaluFormatStartCodes = 1,

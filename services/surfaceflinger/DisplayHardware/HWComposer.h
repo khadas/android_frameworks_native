@@ -111,6 +111,8 @@ public:
 
     bool supportsFramebufferTarget() const;
 
+    bool hasHwcVideoComposition(int32_t id) const;
+
     // does this display have layers handled by HWC
     bool hasHwcComposition(int32_t id) const;
 
@@ -332,6 +334,7 @@ private:
         bool connected;
         bool hasFbComp;
         bool hasOvComp;
+        bool hasVideoOvComp;
         size_t capacity;
         hwc_display_contents_1* list;
         hwc_layer_1* framebufferTarget;

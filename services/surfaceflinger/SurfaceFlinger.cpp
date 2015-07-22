@@ -127,11 +127,13 @@ static const int64_t sfVsyncPhaseOffsetNs = SF_VSYNC_EVENT_PHASE_OFFSET_NS;
 #define SYSFS_VIDEO_AXIS     "/sys/class/video/axis"
 #define SYSFS_DISPLAY_AXIS   "/sys/class/display/axis"
 #define SYSFS_VIDEOBUFUSED       "/sys/class/amstream/videobufused"
+#define SYSFS_VIDEOBLACK_POLICY "/sys/class/video/blackout_policy"
 
 #define SYSCMD_BUFSIZE   32
 
 int amsysfs_set_sysfs_str(const char *path, const char *val);
 int amsysfs_get_sysfs_str(const char *path, char *valstr, int size);
+int amsysfs_get_sysfs_int(const char *path);
 int wait_video_unreg();
 
 const String16 sHardwareTest("android.permission.HARDWARE_TEST");
@@ -1968,11 +1970,28 @@ int amsysfs_set_sysfs_str(const char *path, const char *val)
     return -1;
 }
 
+int amsysfs_get_sysfs_int(const char *path)
+{
+    int fd;
+    int val = 0;
+    char  bcmd[16];
+    fd = open(path, O_RDONLY);
+    if (fd >= 0) {
+        read(fd, bcmd, sizeof(bcmd));
+        val = strtol(bcmd, NULL, 10);
+        close(fd);
+    } else {
+        ALOGE("amsysfs_get_sysfs_int %s, err: %s", path, strerror(errno));
+    }
+    return val;
+}
+
 bool SurfaceFlinger::isVideoBufUsed(void) const{
     char video_buf_used[32]={0};
 
-    if ((amsysfs_get_sysfs_str(SYSFS_VIDEOBUFUSED, video_buf_used, sizeof(video_buf_used)) == 0)
-        && (strcmp(video_buf_used, "1") == 0)){
+    if (((amsysfs_get_sysfs_str(SYSFS_VIDEOBUFUSED, video_buf_used, sizeof(video_buf_used)) == 0)
+        && (strcmp(video_buf_used, "1") == 0))
+        && (amsysfs_get_sysfs_int(SYSFS_VIDEOBLACK_POLICY) != 0)) {
         return true;
     }
 
@@ -2096,7 +2115,11 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
             // remove where there are opaque FB layers. however, on some
             // GPUs doing a "clean slate" clear might be more efficient.
             // We'll revisit later if needed.
-            engine.clearWithColor(0, 0, 0, 0);
+            if (isVideoBufUsed() || hwc.hasHwcVideoComposition(id)) {
+                engine.clearWithColor(0, 0, 0, 0);
+            } else {
+                engine.clearWithColor(0, 0, 0, 1);
+            }
         } else {
             // we start with the whole screen area
             const Region bounds(hw->getBounds());

@@ -677,6 +677,7 @@ status_t HWComposer::prepare() {
             DisplayData& disp(mDisplayData[i]);
             disp.hasFbComp = false;
             disp.hasOvComp = false;
+            disp.hasVideoOvComp = false;
             if (disp.list) {
                 for (size_t i=0 ; i<disp.list->numHwLayers ; i++) {
                     hwc_layer_1_t& l = disp.list->hwLayers[i];
@@ -695,6 +696,7 @@ status_t HWComposer::prepare() {
                         disp.hasFbComp = true;
                         //--
                         disp.hasOvComp = true;
+                        disp.hasVideoOvComp = true;
                     }
                     if (l.compositionType == HWC_CURSOR_OVERLAY) {
                         disp.hasOvComp = true;
@@ -709,6 +711,12 @@ status_t HWComposer::prepare() {
         }
     }
     return (status_t)err;
+}
+
+bool HWComposer::hasHwcVideoComposition(int32_t id) const {
+    if (!mHwc || uint32_t(id)>31 || !mAllocatedDisplayIDs.hasBit(id))
+        return false;
+    return mDisplayData[id].hasVideoOvComp;
 }
 
 bool HWComposer::hasHwcComposition(int32_t id) const {
@@ -1273,7 +1281,7 @@ HWComposer::DisplayData::DisplayData()
     currentConfig(0),
     format(HAL_PIXEL_FORMAT_RGBA_8888),
     connected(false),
-    hasFbComp(false), hasOvComp(false),
+    hasFbComp(false), hasOvComp(false), hasVideoOvComp(false),
     capacity(0), list(NULL),
     framebufferTarget(NULL), fbTargetHandle(0),
     lastRetireFence(Fence::NO_FENCE), lastDisplayFence(Fence::NO_FENCE),

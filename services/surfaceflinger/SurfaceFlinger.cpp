@@ -126,8 +126,7 @@ static const int64_t sfVsyncPhaseOffsetNs = SF_VSYNC_EVENT_PHASE_OFFSET_NS;
 #define SYSFS_FB1_SCALE_AXIS  "/sys/class/graphics/fb1/scale_axis"
 #define SYSFS_VIDEO_AXIS     "/sys/class/video/axis"
 #define SYSFS_DISPLAY_AXIS   "/sys/class/display/axis"
-#define SYSFS_VIDEOBUFUSED       "/sys/class/amstream/videobufused"
-#define SYSFS_VIDEOBLACK_POLICY "/sys/class/video/blackout_policy"
+#define SYSFS_VIDEOLAYERSTATE "/sys/class/video/video_layer1_state"
 
 #define SYSCMD_BUFSIZE   32
 
@@ -1986,12 +1985,10 @@ int amsysfs_get_sysfs_int(const char *path)
     return val;
 }
 
-bool SurfaceFlinger::isVideoBufUsed(void) const{
-    char video_buf_used[32]={0};
+bool SurfaceFlinger::getVideoLayerState(void) const{
+    char video_layer_state[32]={0};
 
-    if (((amsysfs_get_sysfs_str(SYSFS_VIDEOBUFUSED, video_buf_used, sizeof(video_buf_used)) == 0)
-        && (strcmp(video_buf_used, "1") == 0))
-        && (amsysfs_get_sysfs_int(SYSFS_VIDEOBLACK_POLICY) != 0)) {
+    if (amsysfs_get_sysfs_int(SYSFS_VIDEOLAYERSTATE) == 1) {
         return true;
     }
 
@@ -2115,7 +2112,7 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
             // remove where there are opaque FB layers. however, on some
             // GPUs doing a "clean slate" clear might be more efficient.
             // We'll revisit later if needed.
-            if (isVideoBufUsed() || hwc.hasHwcVideoComposition(id)) {
+            if (getVideoLayerState() || hwc.hasHwcVideoComposition(id)) {
                 engine.clearWithColor(0, 0, 0, 0);
             } else {
                 engine.clearWithColor(0, 0, 0, 1);
@@ -2223,7 +2220,7 @@ void SurfaceFlinger::drawWormhole(const sp<const DisplayDevice>& hw, const Regio
     const int32_t height = hw->getHeight();
     RenderEngine& engine(getRenderEngine());
 
-    if (isVideoBufUsed()) {
+    if (getVideoLayerState()) {
         //ALOGE("drawWormhole: clear with 0x00");
         engine.fillRegionWithColor(region, height, 0, 0, 0, 0);
     } else {

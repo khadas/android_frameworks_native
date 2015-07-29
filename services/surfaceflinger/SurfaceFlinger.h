@@ -435,7 +435,7 @@ private:
     void drawWormhole(const sp<const DisplayDevice>& hw, const Region& region) const;
 
     //return true is video buffer is in used
-    bool isVideoBufUsed(void) const;
+    bool getVideoLayerState(void) const;
     void setCursorRange(int src_w, int src_h, int des_w, int des_h);
     void setDisplayAxis(int offset_x, int offset_y, int w, int h);
 

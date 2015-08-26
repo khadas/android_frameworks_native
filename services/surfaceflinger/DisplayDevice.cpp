@@ -123,8 +123,8 @@ DisplayDevice::DisplayDevice(
 
     //get visible display size
     getDisplayWH(&mDisplayWidth, &mDisplayHeight);
-
-    if (mDisplayWidth == 0 || mDisplayHeight == 0) {
+    if (mDisplayWidth == 0 || mDisplayHeight == 0
+            || mType == DisplayDevice::DISPLAY_VIRTUAL) {
         mDisplayWidth = mFBWidth;
         mDisplayHeight = mFBHeight;
     }

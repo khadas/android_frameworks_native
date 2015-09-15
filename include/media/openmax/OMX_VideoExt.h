@@ -212,6 +212,14 @@ typedef struct OMX_VIDEO_SLICESEGMENTSTYPE {
     OMX_BOOL bEnableLoopFilterAcrossSlices;
 } OMX_VIDEO_SLICESEGMENTSTYPE;
 
+/** force shutdown component  when  Observer died, add by amlogic*/
+typedef struct OMX_VIDEO_FORCESHUTDOWMCOMPONENT{
+    OMX_U32 nSize;
+    OMX_VERSIONTYPE nVersion;
+    OMX_U32 nPortIndex;
+    OMX_BOOL isForceShutdowm;
+} OMX_VIDEO_FORCESHUTDOWMCOMPONENT;
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

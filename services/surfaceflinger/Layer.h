@@ -223,6 +223,10 @@ public:
      */
     virtual bool isFixedSize() const;
 
+#ifdef SKIP_3D_OSDOMX_LAYER
+    virtual bool skip3DOrNot(const BufferItem& item);
+#endif
+
 protected:
     /*
      * onDraw - draws the surface.
@@ -570,6 +574,9 @@ private:
     std::atomic<uint64_t> mCurrentFrameNumber;
     bool mRefreshPending;
     bool mFrameLatencyNeeded;
+#ifdef SKIP_3D_OSDOMX_LAYER
+    bool mSkip3D;
+#endif
     // Whether filtering is forced on or not
     bool mFiltering;
     // Whether filtering is needed b/c of the drawingstate

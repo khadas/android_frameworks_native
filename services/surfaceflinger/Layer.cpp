@@ -89,6 +89,9 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mCurrentFrameNumber(0),
         mRefreshPending(false),
         mFrameLatencyNeeded(false),
+#ifdef SKIP_3D_OSDOMX_LAYER
+        mSkip3D(false),
+#endif
         mFiltering(false),
         mNeedsFiltering(false),
         mMesh(Mesh::TRIANGLE_FAN, 8, 2, 2),
@@ -217,6 +220,18 @@ void Layer::onLayerDisplayed(const sp<const DisplayDevice>& /* hw */,
 }
 #endif
 
+#ifdef SKIP_3D_OSDOMX_LAYER
+bool Layer::skip3DOrNot(const BufferItem& item) {
+    const sp<GraphicBuffer>& activeBuffer(item.mGraphicBuffer);
+    if (activeBuffer != NULL
+        && (activeBuffer->getUsage()
+        & GRALLOC_USAGE_AML_DMA_BUFFER)) {
+        return true;
+    }
+    return false;
+}
+#endif
+
 void Layer::onFrameAvailable(const BufferItem& item) {
     // Add this buffer from our internal queue tracker
     { // Autolock scope
@@ -243,6 +258,10 @@ void Layer::onFrameAvailable(const BufferItem& item) {
         // Wake up any pending callbacks
         mLastFrameNumberReceived = item.mFrameNumber;
         mQueueItemCondition.broadcast();
+
+#ifdef SKIP_3D_OSDOMX_LAYER
+        mSkip3D = skip3DOrNot(item);
+#endif
     }
 
     mFlinger->signalLayerUpdate();
@@ -270,6 +289,10 @@ void Layer::onFrameReplaced(const BufferItem& item) {
         // Wake up any pending callbacks
         mLastFrameNumberReceived = item.mFrameNumber;
         mQueueItemCondition.broadcast();
+
+#ifdef SKIP_3D_OSDOMX_LAYER
+        mSkip3D = skip3DOrNot(item);
+#endif
     }
 }
 
@@ -1059,38 +1082,48 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
     const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
     const float magicNum = 0.0001f;
     uint32_t count= mMesh.getVertexCount();
+    bool is3DLayer = false;
 
-    //ALOGE("drawWithOpenGL layer mName %s, mIsSkip3D is %d",mName.string(),mIsSkip3D);
-    if (unlikely(count == 8 && (disp.expected3DFormat & e3dLeftRight))) {
-        texCoords[0] = vec2(left - magicNum, 1.0f - top);
-        texCoords[1] = vec2(left - magicNum, 1.0f - bottom);
-        texCoords[2] = vec2(right - magicNum, 1.0f - bottom);
-        texCoords[3] = vec2(right - magicNum, 1.0f - top);
-        texCoords[4] = vec2(left + magicNum, 1.0f - top);
-        texCoords[5] = vec2(left + magicNum, 1.0f - bottom);
-        texCoords[6] = vec2(right + magicNum, 1.0f - bottom);
-        texCoords[7] = vec2(right + magicNum, 1.0f - top);
-    } else if (unlikely(count == 8 && (disp.expected3DFormat & e3dTopBottom))) {
-        if (win.bottom != (int32_t)s.active.h) {
-            texCoords[0] = vec2(left, 1.0f - top);
-            texCoords[1] = vec2(left, 1.0f - bottom);
-            texCoords[2] = vec2(right, 1.0f - bottom);
-            texCoords[3] = vec2(right, 1.0f - top);
-            texCoords[4] = vec2(left, 1.0f - top);
-            texCoords[5] = vec2(left, 1.0f - bottom);
-            texCoords[6] = vec2(right, 1.0f - bottom);
-            texCoords[7] = vec2(right, 1.0f - top);
-        } else {
-            texCoords[0] = vec2(left, (1.0f - top));
-            texCoords[1] = vec2(left, (1.0f - (bottom - magicNum)));
-            texCoords[2] = vec2(right, (1.0f - (bottom - magicNum)));
-            texCoords[3] = vec2(right, (1.0f - top));
-            texCoords[4] = vec2(left, (1.0f - top));
-            texCoords[5] = vec2(left, (1.0f - (bottom - magicNum)));
-            texCoords[6] = vec2(right, (1.0f - (bottom - magicNum)));
-            texCoords[7] = vec2(right, (1.0f - top));
+#ifdef SKIP_3D_OSDOMX_LAYER
+    // ALOGE("drawWithOpenGL layer mName %s, mSkip3D is %d",mName.string(), mSkip3D);
+    if (!mSkip3D) {
+#endif
+        if (unlikely(count == 8 && (disp.expected3DFormat & e3dLeftRight))) {
+            texCoords[0] = vec2(left - magicNum, 1.0f - top);
+            texCoords[1] = vec2(left - magicNum, 1.0f - bottom);
+            texCoords[2] = vec2(right - magicNum, 1.0f - bottom);
+            texCoords[3] = vec2(right - magicNum, 1.0f - top);
+            texCoords[4] = vec2(left + magicNum, 1.0f - top);
+            texCoords[5] = vec2(left + magicNum, 1.0f - bottom);
+            texCoords[6] = vec2(right + magicNum, 1.0f - bottom);
+            texCoords[7] = vec2(right + magicNum, 1.0f - top);
+            is3DLayer = true;
+        } else if (unlikely(count == 8 && (disp.expected3DFormat & e3dTopBottom))) {
+            if (win.bottom != (int32_t)s.active.h) {
+                texCoords[0] = vec2(left, 1.0f - top);
+                texCoords[1] = vec2(left, 1.0f - bottom);
+                texCoords[2] = vec2(right, 1.0f - bottom);
+                texCoords[3] = vec2(right, 1.0f - top);
+                texCoords[4] = vec2(left, 1.0f - top);
+                texCoords[5] = vec2(left, 1.0f - bottom);
+                texCoords[6] = vec2(right, 1.0f - bottom);
+                texCoords[7] = vec2(right, 1.0f - top);
+            } else {
+                texCoords[0] = vec2(left, (1.0f - top));
+                texCoords[1] = vec2(left, (1.0f - (bottom - magicNum)));
+                texCoords[2] = vec2(right, (1.0f - (bottom - magicNum)));
+                texCoords[3] = vec2(right, (1.0f - top));
+                texCoords[4] = vec2(left, (1.0f - top));
+                texCoords[5] = vec2(left, (1.0f - (bottom - magicNum)));
+                texCoords[6] = vec2(right, (1.0f - (bottom - magicNum)));
+                texCoords[7] = vec2(right, (1.0f - top));
+            }
+            is3DLayer = true;
         }
-    } else {
+#ifdef SKIP_3D_OSDOMX_LAYER
+    }
+#endif
+    if (!is3DLayer) {
         texCoords[0] = vec2(left, 1.0f - top);
         texCoords[1] = vec2(left, 1.0f - bottom);
         texCoords[2] = vec2(right, 1.0f - bottom);
@@ -1301,52 +1334,70 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     vec2 rb2 = vec2(0, 0);
     vec2 rt2 = vec2(0, 0);
 
-    if (unlikely(count == 8 && (disp.expected3DFormat & e3dLeftRight))) {
-        // left-right
-        lt = vec2(win.left / 2, win.top);
-        lb = vec2(win.left / 2, win.bottom);
-        rb = vec2(win.right / 2, win.bottom);
-        rt = vec2(win.right / 2, win.top);
-        lt2 = vec2((tmp_width + win.left) / 2, win.top);
-        lb2 = vec2((tmp_width + win.left) / 2, win.bottom);
-        rb2 = vec2((tmp_width + win.right) / 2, win.bottom);
-        rt2 = vec2((tmp_width + win.right) / 2, win.top);
-    } else if (unlikely(count == 8 && (disp.expected3DFormat & e3dTopBottom))) {
-        // top-bottom, cupute the android-window axis
-        lt = vec2(win.left, (win.top + 1) / 2);
-        lb = vec2(win.left, (win.bottom + 1) / 2);
-        rb = vec2(win.right, (win.bottom + 1) / 2);
-        rt = vec2(win.right, (win.top + 1) / 2);
-        lt2 = vec2(win.left, (tmp_height + win.top + 1) / 2);
-        lb2 = vec2(win.left, (tmp_height + win.bottom + 1) / 2);
-        rb2 = vec2(win.right, (tmp_height+win.bottom + 1) / 2);
-        rt2 = vec2(win.right, (tmp_height + win.top + 1) / 2);
+#ifdef SKIP_3D_OSDOMX_LAYER
+    if (!mSkip3D) {
+#endif
+        if (unlikely(count == 8 && (disp.expected3DFormat & e3dLeftRight))) {
+            // left-right
+            lt = vec2(win.left / 2, win.top);
+            lb = vec2(win.left / 2, win.bottom);
+            rb = vec2(win.right / 2, win.bottom);
+            rt = vec2(win.right / 2, win.top);
+            lt2 = vec2((tmp_width + win.left) / 2, win.top);
+            lb2 = vec2((tmp_width + win.left) / 2, win.bottom);
+            rb2 = vec2((tmp_width + win.right) / 2, win.bottom);
+            rt2 = vec2((tmp_width + win.right) / 2, win.top);
+        } else if (unlikely(count == 8 && (disp.expected3DFormat & e3dTopBottom))) {
+            // top-bottom, cupute the android-window axis
+            lt = vec2(win.left, (win.top + 1) / 2);
+            lb = vec2(win.left, (win.bottom + 1) / 2);
+            rb = vec2(win.right, (win.bottom + 1) / 2);
+            rt = vec2(win.right, (win.top + 1) / 2);
+            lt2 = vec2(win.left, (tmp_height + win.top + 1) / 2);
+            lb2 = vec2(win.left, (tmp_height + win.bottom + 1) / 2);
+            rb2 = vec2(win.right, (tmp_height+win.bottom + 1) / 2);
+            rt2 = vec2(win.right, (tmp_height + win.top + 1) / 2);
+        }
+#ifdef SKIP_3D_OSDOMX_LAYER
     }
+#endif
 
     if (!useIdentityTransform) {
         lt = s.active.transform.transform(lt);
         lb = s.active.transform.transform(lb);
         rb = s.active.transform.transform(rb);
         rt = s.active.transform.transform(rt);
-        if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
-            lt2 = s.active.transform.transform(lt2);
-            lb2 = s.active.transform.transform(lb2);
-            rb2 = s.active.transform.transform(rb2);
-            rt2 = s.active.transform.transform(rt2);
+#ifdef SKIP_3D_OSDOMX_LAYER
+        if (!mSkip3D) {
+#endif
+            if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
+                lt2 = s.active.transform.transform(lt2);
+                lb2 = s.active.transform.transform(lb2);
+                rb2 = s.active.transform.transform(rb2);
+                rt2 = s.active.transform.transform(rt2);
+            }
+#ifdef SKIP_3D_OSDOMX_LAYER
         }
+#endif
     }
 
     if (!s.finalCrop.isEmpty()) {
-            boundPoint(&lt, s.finalCrop);
-            boundPoint(&lb, s.finalCrop);
-            boundPoint(&rb, s.finalCrop);
-            boundPoint(&rt, s.finalCrop);
-        if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
-            boundPoint(&lt2, s.finalCrop);
-            boundPoint(&lb2, s.finalCrop);
-            boundPoint(&rb2, s.finalCrop);
-            boundPoint(&rt2, s.finalCrop);
+        boundPoint(&lt, s.finalCrop);
+        boundPoint(&lb, s.finalCrop);
+        boundPoint(&rb, s.finalCrop);
+        boundPoint(&rt, s.finalCrop);
+#ifdef SKIP_3D_OSDOMX_LAYER
+        if (!mSkip3D) {
+#endif
+            if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
+                boundPoint(&lt2, s.finalCrop);
+                boundPoint(&lb2, s.finalCrop);
+                boundPoint(&rb2, s.finalCrop);
+                boundPoint(&rt2, s.finalCrop);
+            }
+#ifdef SKIP_3D_OSDOMX_LAYER
         }
+#endif
     }
 
     Mesh::VertexArray<vec2> position(mesh.getPositionArray<vec2>());
@@ -1355,15 +1406,24 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     position[2] = tr.transform(rb);
     position[3] = tr.transform(rt);
 
-    //ALOGE("computeGeometry layer mName %s, mIsSkip3D is %d", mName.string(), mIsSkip3D);
-    if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
-        // left-right
-        position[4] = tr.transform(lt2);
-        position[5] = tr.transform(lb2);
-        position[6] = tr.transform(rb2);
-        position[7] = tr.transform(rt2);
-        mesh.setDrawCount(8);
-    } else {
+    bool is3DLayer = false;
+#ifdef SKIP_3D_OSDOMX_LAYER
+        // ALOGE("computeGeometry layer mName %s, mSkip3D is %d", mName.string(), mSkip3D);
+        if (!mSkip3D) {
+#endif
+        if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
+            // left-right
+            position[4] = tr.transform(lt2);
+            position[5] = tr.transform(lb2);
+            position[6] = tr.transform(rb2);
+            position[7] = tr.transform(rt2);
+            mesh.setDrawCount(8);
+            is3DLayer = true;
+        }
+#ifdef SKIP_3D_OSDOMX_LAYER
+    }
+#endif
+    if (!is3DLayer) {
         mesh.setDrawCount(4);
     }
 
@@ -1678,13 +1738,19 @@ bool Layer::setPosition(float x, float y, bool immediate) {
 
     /*---Add for 3D case,the screen is divided into 2 part,so need to set the vertext in half----*/
     const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
-    if (unlikely(disp.expected3DFormat& e3dLeftRight)) {
-        x = x/(float)2.0;
-        if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
-    } else if (unlikely(disp.expected3DFormat & e3dTopBottom)) {
-        y = y/(float)2.0;
-        if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+#ifdef SKIP_3D_OSDOMX_LAYER
+    if (!mSkip3D) {
+#endif
+        if (unlikely(disp.expected3DFormat& e3dLeftRight)) {
+            x = x/(float)2.0;
+            if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+        } else if (unlikely(disp.expected3DFormat & e3dTopBottom)) {
+            y = y/(float)2.0;
+            if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+        }
+#ifdef SKIP_3D_OSDOMX_LAYER
     }
+#endif
 
     // We update the requested and active position simultaneously because
     // we want to apply the position portion of the transform matrix immediately,

@@ -114,7 +114,8 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_MODULE := libsurfaceflinger
 
-LOCAL_CFLAGS += -Wall -Werror -Wunused -Wunreachable-code
+LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter -Wno-reorder -Wno-unused-private-field \
+  -Wno-sign-compare -Wno-unused-variable -Wunreachable-code
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -147,7 +148,7 @@ ifdef TARGET_32_BIT_SURFACEFLINGER
 LOCAL_32_BIT_ONLY := true
 endif
 
-LOCAL_CFLAGS += -Wall -Werror -Wunused -Wunreachable-code
+LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter -Wunreachable-code
 
 include $(BUILD_EXECUTABLE)
 

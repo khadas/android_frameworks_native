@@ -168,7 +168,7 @@ public:
             const Rect& displayRect);
     void setDisplaySize(const sp<IBinder>& token, uint32_t width, uint32_t height);
     void setVDisplaySize(const sp<IBinder>& token, uint32_t format );
-    void setDisplay2Stereoscopic(const sp<IBinder>& token,int format);
+    void setDisplay2Stereoscopic(const sp<IBinder>& token, uint32_t format);
 
     static void setAnimationTransaction() {
         Composer::getInstance().setAnimationTransactionImpl();
@@ -445,11 +445,11 @@ void Composer::setVDisplaySize(const sp<IBinder>& token, uint32_t format )
     s.what |= DisplayState::eVDisplaySizeChanged;
 }
 
-void  Composer::setDisplay2Stereoscopic(const sp<IBinder>& token,int format)
+void  Composer::setDisplay2Stereoscopic(const sp<IBinder>& token, uint32_t format)
 {
     Mutex::Autolock _l(mLock);
     DisplayState& s(getDisplayStateLocked(token));
-    s.want3D= format;
+    s.want3D = format;
 
     s.what |= DisplayState::eWant3D;
 }
@@ -660,7 +660,7 @@ void SurfaceComposerClient::setVDisplaySize(int displayid,uint32_t format)
     Composer::getInstance().setVDisplaySize(token, format);
 }
 
-void  SurfaceComposerClient::setDisplay2Stereoscopic(int displayid,int format)
+void  SurfaceComposerClient::setDisplay2Stereoscopic(int displayid, uint32_t format)
 {
     sp<IBinder> token = getBuiltInDisplay(int32_t(displayid));
     Composer::getInstance().setDisplay2Stereoscopic(token, format);

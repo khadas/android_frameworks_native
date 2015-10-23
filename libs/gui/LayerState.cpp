@@ -80,11 +80,11 @@ status_t ComposerState::read(const Parcel& input) {
 status_t DisplayState::write(Parcel& output) const {
     output.writeStrongBinder(token);
     output.writeStrongBinder(IInterface::asBinder(surface));
-    output.writeInt32(what);
-    output.writeInt32(layerStack);
-    output.writeInt32(orientation);
-    output.writeInt32(vFormat);
-    output.writeInt32(want3D);
+    output.writeUint32(what);
+    output.writeUint32(layerStack);
+    output.writeUint32(orientation);
+    output.writeUint32(vFormat);
+    output.writeUint32(want3D);
     output.write(viewport);
     output.write(frame);
     output.writeUint32(width);
@@ -95,11 +95,11 @@ status_t DisplayState::write(Parcel& output) const {
 status_t DisplayState::read(const Parcel& input) {
     token = input.readStrongBinder();
     surface = interface_cast<IGraphicBufferProducer>(input.readStrongBinder());
-    what = input.readInt32();
-    layerStack = input.readInt32();
-    orientation = input.readInt32();
-    vFormat = input.readInt32();
-    want3D= input.readInt32();
+    what = input.readUint32();
+    layerStack = input.readUint32();
+    orientation = input.readUint32();
+    vFormat = input.readUint32();
+    want3D= input.readUint32();
     input.read(viewport);
     input.read(frame);
     width = input.readUint32();

@@ -62,6 +62,9 @@ protected:
 
     virtual void drawMesh(const Mesh& mesh);
 
+    virtual void beginGroup(const mat4& colorTransform);
+    virtual void endGroup();
+
     virtual size_t getMaxTextureSize() const;
     virtual size_t getMaxViewportDims() const;
 };

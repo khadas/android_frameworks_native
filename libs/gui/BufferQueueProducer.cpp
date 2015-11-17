@@ -667,7 +667,7 @@ status_t BufferQueueProducer::queueBuffer(int slot,
             BufferQueueCore::Fifo::iterator front(mCore->mQueue.begin());
             // add by amlogic, only for omx video layer display,use async mode
             int usage_omx = front->mGraphicBuffer->usage;
-            bool omx_drop = usage_omx & (GRALLOC_USAGE_PRIVATE_2 | GRALLOC_USAGE_AML_VIDEO_OVERLAY);
+            bool omx_drop = (usage_omx & GRALLOC_USAGE_AML_OMX_OVERLAY) && (usage_omx & GRALLOC_USAGE_AML_VIDEO_OVERLAY);
             //BQ_LOGV("usage_omx=%x, omx_drop=%d", usage_omx, omx_drop);
             if (front->mIsDroppable || omx_drop) {
                 // If the front queued buffer is still being tracked, we first

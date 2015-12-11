@@ -192,6 +192,8 @@ public:
      */
     virtual bool isFixedSize() const;
 
+    virtual void setSkip3d(bool skip3d);
+
 protected:
     /*
      * onDraw - draws the surface.
@@ -392,6 +394,7 @@ private:
     bool mCurrentOpacity;
     bool mRefreshPending;
     bool mFrameLatencyNeeded;
+    bool mIsSkip3D;
     // Whether filtering is forced on or not
     bool mFiltering;
     // Whether filtering is needed b/c of the drawingstate
@@ -416,6 +419,11 @@ private:
     bool mIsBootAnimation;
     bool mIsQuickBootAnimation;
     Transform mBootAnimTr;
+#ifdef VIDEO_WORKLOAD_CUT_DOWN
+    int32_t mOmxVideoHandle;
+    bool mOmxOverlayLayer;
+    uint32_t mOmxFrameCount;
+#endif
     // Local copy of the queued contents of the incoming BufferQueue
     mutable Mutex mQueueItemLock;
     Condition mQueueItemCondition;

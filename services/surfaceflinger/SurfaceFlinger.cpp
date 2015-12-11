@@ -2264,6 +2264,10 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
                         break;
                     }
                     case HWC_FRAMEBUFFER: {
+                        if (cur->getHints() & HWC_HINT_OSD_VIDEO_OMX) {
+                           //ALOGD("Hint osd video omx, need skip 3d,layer name is %s", layer->getName().string());
+                           layer->setSkip3d(true);
+                        }
                         layer->draw(hw, clip);
                         break;
                     }
@@ -2521,7 +2525,7 @@ uint32_t SurfaceFlinger::setDisplayStateLocked(const DisplayState& s)
             if (disp.d3Format != s.want3D) {
                 ALOGD("-----d3Format  changed --format %u- ",s.want3D);
                 disp.d3Format = s.want3D;
-                flags |= eWant3DNeeded;
+                //flags |= eWant3DNeeded;
             }
         }
     }

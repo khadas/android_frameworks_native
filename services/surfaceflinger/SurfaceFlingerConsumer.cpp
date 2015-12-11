@@ -97,6 +97,49 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
     return err;
 }
 
+#ifdef VIDEO_WORKLOAD_CUT_DOWN
+status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(uint64_t maxFrameNumber)
+{
+    ATRACE_CALL();
+    ALOGV("updateNoTextureBuffer");
+    Mutex::Autolock lock(mMutex);
+
+    if (mAbandoned) {
+        ALOGE("updateNoTextureBuffer: GLConsumer is abandoned!");
+        return NO_INIT;
+    }
+
+    BufferItem item;
+
+    // Acquire the next buffer.
+    // In asynchronous mode the list is guaranteed to be one buffer
+    // deep, while in synchronous mode we use the oldest buffer.
+    status_t err = GLConsumer::acquireNoTextureBufferLocked(&item, 0,
+        maxFrameNumber);
+    if (err == NO_ERROR) {
+        mTransformToDisplayInverse = item.mTransformToDisplayInverse;
+    } else {
+        if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
+            err = NO_ERROR;
+        } else if (err == BufferQueue::PRESENT_LATER) {
+            // return the error, without logging
+        } else {
+            ALOGE("updateNoTextureBuffer: acquire failed: %s (%d)",
+                strerror(-err), err);
+        }
+        return err;
+    }
+
+    // Release the previous buffer.
+    err = updateAndReleaseNoTextureBufferLocked(item);
+    if (err != NO_ERROR) {
+        return err;
+    }
+
+    return err;
+}
+#endif
+
 status_t SurfaceFlingerConsumer::bindTextureImage()
 {
     Mutex::Autolock lock(mMutex);

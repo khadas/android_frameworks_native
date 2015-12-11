@@ -375,6 +375,71 @@ status_t GLConsumer::releaseBufferLocked(int buf,
     return err;
 }
 
+#ifdef VIDEO_WORKLOAD_CUT_DOWN
+status_t GLConsumer::acquireNoTextureBufferLocked(BufferItem *item,
+        nsecs_t presentWhen, uint64_t maxFrameNumber) {
+    status_t err = ConsumerBase::acquireBufferLocked(item, presentWhen,
+            maxFrameNumber);
+    if (err != NO_ERROR) {
+        return err;
+    }
+
+    // If item->mGraphicBuffer is not null, this buffer has not been acquired
+    // before, so any prior EglImage created is using a stale buffer. This
+    // replaces any old EglImage with a new one (using the new buffer).
+    if (item->mGraphicBuffer != NULL) {
+        int slot = item->mBuf;
+        mEglSlots[slot].mEglImage = new EglImage(item->mGraphicBuffer);
+    }
+
+    return NO_ERROR;
+}
+
+status_t GLConsumer::updateAndReleaseNoTextureBufferLocked(const BufferItem& item)
+{
+    status_t err = NO_ERROR;
+
+    int buf = item.mBuf;
+
+    if (!mAttached) {
+        GLC_LOGE("updateAndRelease: GLConsumer is not attached to an OpenGL "
+                "ES context");
+        releaseBufferLocked(buf, mSlots[buf].mGraphicBuffer,
+                mEglDisplay, EGL_NO_SYNC_KHR);
+        return INVALID_OPERATION;
+    }
+
+    GLC_LOGV("updateAndRelease: (slot=%d buf=%p) -> (slot=%d buf=%p)",
+            mCurrentTexture, mCurrentTextureImage != NULL ?
+                    mCurrentTextureImage->graphicBufferHandle() : 0,
+            buf, mSlots[buf].mGraphicBuffer->handle);
+
+    // release old buffer
+    if (mCurrentTexture != BufferQueue::INVALID_BUFFER_SLOT) {
+        status_t status = releaseBufferLocked(
+                mCurrentTexture, mCurrentTextureImage->graphicBuffer(),
+                mEglDisplay, EGL_NO_SYNC_KHR);
+        if (status < NO_ERROR) {
+            GLC_LOGE("updateAndRelease: failed to release buffer: %s (%d)",
+                   strerror(-status), status);
+            err = status;
+            // keep going, with error raised [?]
+        }
+    }
+
+    // Update the GLConsumer state.
+    mCurrentTexture = buf;
+    mCurrentTextureImage = mEglSlots[buf].mEglImage;
+    mCurrentCrop = item.mCrop;
+    mCurrentTransform = item.mTransform;
+    mCurrentScalingMode = item.mScalingMode;
+    mCurrentTimestamp = item.mTimestamp;
+    mCurrentFence = item.mFence;
+    mCurrentFrameNumber = item.mFrameNumber;
+    return err;
+}
+#endif
+
 status_t GLConsumer::updateAndReleaseLocked(const BufferItem& item)
 {
     status_t err = NO_ERROR;

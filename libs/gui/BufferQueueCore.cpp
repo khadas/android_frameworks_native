@@ -213,7 +213,7 @@ void BufferQueueCore::freeBufferLocked(int slot) {
     }
     mSlots[slot].mBufferState = BufferSlot::FREE;
 
-    mSlots[slot].mFrameNumber = 0/*UINT32_MAX*/;
+    //mSlots[slot].mFrameNumber = 0/*UINT32_MAX*/;
 
     mSlots[slot].mAcquireCalled = false;
     mSlots[slot].mFrameNumber = 0;

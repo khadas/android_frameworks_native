@@ -98,6 +98,8 @@ LOCAL_CFLAGS += -DSINGLE_EXTERNAL_DISPLAY_USE_FB1
 endif
 endif
 
+LOCAL_CFLAGS += -DVIDEO_WORKLOAD_CUT_DOWN
+
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     liblog \
@@ -112,6 +114,10 @@ LOCAL_SHARED_LIBRARIES := \
     libgui \
     libpowermanager
 
+LOCAL_STATIC_LIBRARIES := libomxutil
+OMX_UTIL_DIR := hardware/amlogic/hwcomposer/tvp
+LOCAL_C_INCLUDES += \
+    $(OMX_UTIL_DIR)
 LOCAL_MODULE := libsurfaceflinger
 
 LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter -Wno-reorder -Wno-unused-private-field \

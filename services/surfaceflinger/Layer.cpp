@@ -254,6 +254,7 @@ void Layer::onFrameAvailable(const BufferItem& item) {
         }
     } else {
         mOmxOverlayLayer = false;
+        mOmxFrameCount = 0;
     }
 
     if (mOmxOverlayLayer == false && mOmxVideoHandle != 0) {

@@ -333,6 +333,21 @@ void SurfaceFlinger::bootFinished()
     // formerly we would just kill the process, but we now ask it to exit so it
     // can choose where to stop the animation.
     property_set("service.bootanim.exit", "1");
+
+    char value[PROPERTY_VALUE_MAX] = {0};
+    property_get("service.bootvideo", value, "0");
+    if (atoi(value) == 1) {
+        //stop boot video
+        property_set("service.bootvideo.exit", "1");
+        do {
+            //wait bootvideo daemon exit
+            property_get("init.svc.bootvideo", value, "NULL");
+        } while (!strcmp(value, "running"));
+
+        ALOGI("boot video exited, open osd");
+        amsysfs_set_sysfs_str(SYSFS_FB0_BLANK, "0");
+        amsysfs_set_sysfs_str("/sys/class/video/disable_video", "2");
+    }
 }
 
 void SurfaceFlinger::deleteTextureAsync(uint32_t texture) {
@@ -572,9 +587,17 @@ int32_t SurfaceFlinger::allocateHwcDisplayId(DisplayDevice::DisplayType type) {
 }
 
 void SurfaceFlinger::startBootAnim() {
-    // start boot animation
-    property_set("service.bootanim.exit", "0");
-    property_set("ctl.start", "bootanim");
+    char value[PROPERTY_VALUE_MAX] = {0};
+    property_get("service.bootvideo", value, "0");
+    if (atoi(value) == 1) {
+        // start boot video
+        property_set("ctl.start", "bootvideo");
+    }
+    else {
+        // start boot animation
+        property_set("service.bootanim.exit", "0");
+        property_set("ctl.start", "bootanim");
+    }
 }
 
 size_t SurfaceFlinger::getMaxTextureSize() const {

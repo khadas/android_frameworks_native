@@ -91,6 +91,9 @@ typedef enum OMX_VIDEO_CODINGTYPE {
     OMX_VIDEO_CodingHEVC,       /**< ITU H.265/HEVC */
     OMX_VIDEO_CodingKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
     OMX_VIDEO_CodingVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+    OMX_VIDEO_CodingRV10,         /**< all versions of Real Video */
+    OMX_VIDEO_CodingRV20,
+    OMX_VIDEO_CodingRV40,		  /**< all versions of Real Video */
     OMX_VIDEO_CodingMax = 0x7FFFFFFF
 } OMX_VIDEO_CODINGTYPE;
 

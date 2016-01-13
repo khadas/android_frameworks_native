@@ -48,7 +48,7 @@ class Surface
     : public ANativeObjectBase<ANativeWindow, Surface, RefBase>
 {
 public:
-
+    bool fromSurfaceTexture = false;
     /*
      * creates a Surface from the given IGraphicBufferProducer (which concrete
      * implementation is a BufferQueue).

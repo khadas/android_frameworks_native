@@ -611,6 +611,24 @@ void Layer::setGeometry(
     }
 }
 
+void Layer::setOverlayFrame(
+    const sp<const DisplayDevice>& hw,
+        HWComposer::HWCLayerInterface& layer)
+{
+    // this gives us only the "orientation" component of the transform
+    const State& s(getDrawingState());
+
+    // apply the layer's transform, followed by the display's global transform
+    // here we're guaranteed that the layer's transform preserves rects
+    Region activeVisibleRegion(visibleRegion);
+    Rect frame((activeVisibleRegion.getBounds()));
+    const Transform& tr(hw->getTransform());
+    // ALOGE("frame: (%4d, %4d, %4d, %4d)", frame.left, frame.top, frame.right, frame.bottom);
+
+    layer.setFrame(tr.transform(frame));
+}
+
+
 void Layer::setPerFrameData(const sp<const DisplayDevice>& hw,
         HWComposer::HWCLayerInterface& layer) {
     // we have to set the visible region on every frame because

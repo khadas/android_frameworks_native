@@ -60,7 +60,8 @@ public:
             uint64_t maxFrameNumber = 0);
 
 #ifdef VIDEO_WORKLOAD_CUT_DOWN
-    status_t updateAndReleaseNoTextureBuffer(uint64_t maxFrameNumber = 0);
+    status_t updateAndReleaseNoTextureBuffer(const DispSync& dispSync,
+            uint64_t maxFrameNumber = 0);
 #endif
 
     // See GLConsumer::bindTextureImageLocked().

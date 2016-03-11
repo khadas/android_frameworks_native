@@ -223,11 +223,11 @@ void Layer::onFrameAvailable(const BufferItem& item) {
         activeBuffer->lock(activeBuffer->getUsage() | GRALLOC_USAGE_SW_READ_MASK, &vaddr);
         //ALOGE("Stark: AML_VIDEO_OVERLAY come in, vaddr: %p", vaddr);
         set_omx_pts((char*)vaddr, &mOmxVideoHandle);
+        activeBuffer->unlock();
         mOmxOverlayLayer = true;
         if (mOmxFrameCount <= 3) {
             mOmxFrameCount++;
         }
-        activeBuffer->unlock();
 
         // this layer do not need update
         // update and release buffer
@@ -237,11 +237,12 @@ void Layer::onFrameAvailable(const BufferItem& item) {
                 if (mQueuedFrames > 0) {
                     //ALOGE("Stark: update buffer, mQueuedFrames: %d", mQueuedFrames);
                     status_t updateResult =
-                        mSurfaceFlingerConsumer->updateAndReleaseNoTextureBuffer();
+                        mSurfaceFlingerConsumer->updateAndReleaseNoTextureBuffer(mFlinger->mPrimaryDispSync);
                     if (updateResult == BufferQueue::PRESENT_LATER) {
                         // Producer doesn't want buffer to be displayed yet.  Signal a
                         // layer update so we check again at the next opportunity.
-                        return;
+                        mOmxFrameCount = 0;
+                        break;
                     }
                     // Remove this buffer from our internal queue tracker
                     { // Autolock scope
@@ -250,14 +251,14 @@ void Layer::onFrameAvailable(const BufferItem& item) {
                     }
                 }
             } while (android_atomic_dec(&mQueuedFrames) > 1);
-            return;
+            if (mOmxFrameCount > 3) return;
         }
     } else {
         mOmxOverlayLayer = false;
         mOmxFrameCount = 0;
     }
 
-    if (mOmxOverlayLayer == false && mOmxVideoHandle != 0) {
+    if (!mOmxOverlayLayer && mOmxVideoHandle != 0) {
         closeamvideo();
         mOmxVideoHandle  = 0;
     }

@@ -98,7 +98,9 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
 }
 
 #ifdef VIDEO_WORKLOAD_CUT_DOWN
-status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(uint64_t maxFrameNumber)
+status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(
+        const DispSync& dispSync,
+        uint64_t maxFrameNumber)
 {
     ATRACE_CALL();
     ALOGV("updateNoTextureBuffer");
@@ -114,8 +116,9 @@ status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(uint64_t maxFra
     // Acquire the next buffer.
     // In asynchronous mode the list is guaranteed to be one buffer
     // deep, while in synchronous mode we use the oldest buffer.
-    status_t err = GLConsumer::acquireNoTextureBufferLocked(&item, 0,
-        maxFrameNumber);
+    status_t err = GLConsumer::acquireNoTextureBufferLocked(&item,
+            computeExpectedPresent(dispSync),
+            maxFrameNumber);
     if (err == NO_ERROR) {
         mTransformToDisplayInverse = item.mTransformToDisplayInverse;
     } else {

@@ -259,6 +259,7 @@ public:
         float xdpi;
         float ydpi;
         nsecs_t refresh;
+        int colorTransform;
     };
 
     // Query display parameters.  Pass in a display index (e.g.

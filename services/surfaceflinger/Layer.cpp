@@ -174,6 +174,12 @@ Layer::~Layer() {
     }
     mFlinger->deleteTextureAsync(mTextureName);
     mFrameTracker.logAndResetStats(mName);
+#ifdef VIDEO_WORKLOAD_CUT_DOWN
+    if (mOmxVideoHandle != 0) {
+        closeamvideo();
+        mOmxVideoHandle  = 0;
+    }
+#endif
 }
 
 // ---------------------------------------------------------------------------

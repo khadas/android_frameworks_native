@@ -858,8 +858,9 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
 
     const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
     const float magicNum = 0.0001f;
+    uint32_t count= mMesh.getVertexCount();
     //ALOGE("drawWithOpenGL layer mName %s, mIsSkip3D is %d",mName.string(),mIsSkip3D);
-    if (unlikely(!mIsSkip3D && disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE )) {
+    if (unlikely(!mIsSkip3D && count == 8 && disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE )) {
         texCoords[0] = vec2(left - magicNum, 1.0f - top);
         texCoords[1] = vec2(left - magicNum, 1.0f - bottom);
         texCoords[2] = vec2(right - magicNum, 1.0f - bottom);
@@ -868,8 +869,7 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
         texCoords[5] = vec2(left + magicNum, 1.0f - bottom);
         texCoords[6] = vec2(right + magicNum, 1.0f - bottom);
         texCoords[7] = vec2(right + magicNum, 1.0f - top);
-        mMesh.setDrawCount(8);
-    } else if (unlikely(!mIsSkip3D && disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM )) {
+    } else if (unlikely(!mIsSkip3D && count == 8 && disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM )) {
         if (win.bottom != s.active.h) {
             texCoords[0] = vec2(left, 1.0f - top);
             texCoords[1] = vec2(left, 1.0f - bottom);
@@ -976,10 +976,10 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     Rect r=hw->getViewport();
     uint32_t tmp_width = r.width();
     uint32_t tmp_height = r.height();
-    //uint32_t count= mesh.getVertexCount();
+    uint32_t count= mesh.getVertexCount();
 
     //ALOGE("computeGeometry layer mName %s, mIsSkip3D is %d", mName.string(), mIsSkip3D);
-    if (unlikely(!mIsSkip3D && disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE)) {
+    if (unlikely(!mIsSkip3D && count == 8 && disp.d3Format == REQUEST_3D_FORMAT_SIDE_BY_SIDE)) {
         // left-right
         position[0] = tr.transform(win.left/2,  win.top);
         position[1] = tr.transform(win.left/2,  win.bottom);
@@ -990,7 +990,7 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
         position[6] = tr.transform((tmp_width+win.right)/2, win.bottom);
         position[7] = tr.transform((tmp_width+win.right)/2, win.top);
         mesh.setDrawCount(8);
-    } else if (unlikely(!mIsSkip3D && disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM)) {
+    } else if (unlikely(!mIsSkip3D && count == 8 && disp.d3Format == REQUEST_3D_FORMAT_TOP_BOTTOM)) {
         //top-bottom,cupute the android-window axis
         position[0] = tr.transform(win.left,  (win.top+1)/2);
         position[1] = tr.transform(win.left,  (win.bottom+1)/2);

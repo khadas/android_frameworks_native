@@ -285,8 +285,7 @@ void GLES20RenderEngine::drawMesh(const Mesh& mesh) {
     /*-----modify for 3D----*/
     if (likely(mesh.getDrawCount() == 4)) {
         glDrawArrays(mesh.getPrimitive(), 0, 4);
-    }
-    else if (mesh.getDrawCount() == 8) {
+    } else if (mesh.getDrawCount() == 8) {
        glDrawArrays(mesh.getPrimitive(), 4, 4);
        glDrawArrays(mesh.getPrimitive(), 0, 4);
     } else {

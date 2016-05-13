@@ -67,7 +67,7 @@ endif
 ifneq ($(VSYNC_EVENT_PHASE_OFFSET_NS),)
     LOCAL_CFLAGS += -DVSYNC_EVENT_PHASE_OFFSET_NS=$(VSYNC_EVENT_PHASE_OFFSET_NS)
 else
-    LOCAL_CFLAGS += -DVSYNC_EVENT_PHASE_OFFSET_NS=0
+    LOCAL_CFLAGS += -DVSYNC_EVENT_PHASE_OFFSET_NS=-5500000
 endif
 
 # See build/target/board/generic/BoardConfig.mk for a description of this setting.

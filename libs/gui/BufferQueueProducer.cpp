@@ -215,17 +215,19 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(const char* caller,
             BQ_LOGV("%s: queue size is %zu, waiting", caller,
                     mCore->mQueue.size());
         } else {
-            if (!mCore->mFreeBuffers.empty()) {
+            if (mCore->mAllowAllocation
+                && !mCore->mFreeSlots.empty()
+                && *(mCore->mFreeSlots.begin()) < maxBufferCount) {
+                auto slot = mCore->mFreeSlots.begin();
+                // Only return free slots up to the max buffer count
+                //if (*slot < maxBufferCount) {
+                    *found = *slot;
+                    mCore->mFreeSlots.erase(slot);
+                //}
+            } else if (!mCore->mFreeBuffers.empty()) {
                 auto slot = mCore->mFreeBuffers.begin();
                 *found = *slot;
                 mCore->mFreeBuffers.erase(slot);
-            } else if (mCore->mAllowAllocation && !mCore->mFreeSlots.empty()) {
-                auto slot = mCore->mFreeSlots.begin();
-                // Only return free slots up to the max buffer count
-                if (*slot < maxBufferCount) {
-                    *found = *slot;
-                    mCore->mFreeSlots.erase(slot);
-                }
             }
         }
 

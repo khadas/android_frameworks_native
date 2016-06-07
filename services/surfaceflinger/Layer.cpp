@@ -1269,6 +1269,9 @@ bool Layer::setLayerStack(uint32_t layerStack) {
     mCurrentState.sequence++;
     mCurrentState.layerStack = layerStack;
     setTransactionFlags(eTransactionNeeded);
+    if (mName.contains("SurfaceView") && layerStack != 0) {
+        mSurfaceFlingerConsumer->setName(String8("SurfaceView_GLES"));
+    }
     return true;
 }
 

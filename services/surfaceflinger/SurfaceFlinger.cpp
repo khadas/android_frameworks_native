@@ -942,13 +942,18 @@ void SurfaceFlinger::onHotplugReceived(int type, bool connected) {
 
     if (uint32_t(type) < DisplayDevice::NUM_BUILTIN_DISPLAY_TYPES) {
         Mutex::Autolock _l(mStateLock);
-        if (connected) {
-            createBuiltinDisplayLocked((DisplayDevice::DisplayType)type);
+        if (uint32_t(type) != DisplayDevice::DISPLAY_PRIMARY) {
+            if (connected) {
+                createBuiltinDisplayLocked((DisplayDevice::DisplayType)type);
+            } else {
+                mCurrentState.displays.removeItem(mBuiltinDisplays[type]);
+                mBuiltinDisplays[type].clear();
+            }
+            setTransactionFlags(eDisplayTransactionNeeded);
         } else {
-            mCurrentState.displays.removeItem(mBuiltinDisplays[type]);
-            mBuiltinDisplays[type].clear();
+            // mEventThread->onHotplugReceived(DisplayDevice::DISPLAY_PRIMARY, true);
+            setTransactionFlags(eDisplayTransactionNeeded | ePrimaryHotplugTransction);
         }
-        setTransactionFlags(eDisplayTransactionNeeded);
 
         // Defer EventThread notification until SF has updated mDisplays.
     }
@@ -1480,6 +1485,11 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
      */
 
     if (transactionFlags & eDisplayTransactionNeeded) {
+        // deal Primary display hotplug
+        if (transactionFlags & ePrimaryHotplugTransction) {
+            mEventThread->onHotplugReceived(DisplayDevice::DISPLAY_PRIMARY, true);
+        }
+
         // here we take advantage of Vector's copy-on-write semantics to
         // improve performance by skipping the transaction entirely when
         // know that the lists are identical

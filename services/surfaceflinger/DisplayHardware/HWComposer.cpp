@@ -310,11 +310,14 @@ void HWComposer::hotplug(int disp, int connected) {
                 disp, connected);
         return;
     }
+    if (disp == HWC_DISPLAY_PRIMARY) {
+        mDisplayData[HWC_DISPLAY_PRIMARY].configs.clear();
+    }
     queryDisplayProperties(disp);
     // Do not teardown or recreate the primary display
-    if (disp != HWC_DISPLAY_PRIMARY) {
+    //if (disp != HWC_DISPLAY_PRIMARY) {
         mEventHandler.onHotplugReceived(disp, bool(connected));
-    }
+    //}
 }
 
 static float getDefaultDensity(uint32_t width, uint32_t height) {

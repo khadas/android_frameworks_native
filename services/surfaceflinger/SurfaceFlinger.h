@@ -77,7 +77,8 @@ enum {
     eTraversalNeeded          = 0x02,
     eDisplayTransactionNeeded = 0x04,
     eOtherNeeded                = 0x08,
-    eTransactionMask          = 0x0f
+    ePrimaryHotplugTransction = 0x10,
+    eTransactionMask          = 0x1f
 };
 
 static  int STEREOSCOPIC_3D_FORMAT_OFF=0;

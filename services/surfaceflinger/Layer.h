@@ -194,6 +194,8 @@ public:
 
     virtual void setSkip3d(bool skip3d);
 
+    virtual bool dropOmxFrame(status_t &updateResult);
+
 protected:
     /*
      * onDraw - draws the surface.
@@ -424,7 +426,10 @@ private:
 #ifdef VIDEO_WORKLOAD_CUT_DOWN
     int32_t mOmxVideoHandle;
     bool mOmxOverlayLayer;
-    uint32_t mOmxFrameCount;
+
+    // thread-safe
+    volatile int32_t mOmxFrameCount;
+    mutable Mutex mOmxFrameCountLock;
 #endif
     // Local copy of the queued contents of the incoming BufferQueue
     mutable Mutex mQueueItemLock;

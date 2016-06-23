@@ -98,9 +98,8 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
 }
 
 #ifdef VIDEO_WORKLOAD_CUT_DOWN
-status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(
-        const DispSync& dispSync,
-        uint64_t maxFrameNumber)
+status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(BufferRejecter* rejecter,
+        const DispSync& dispSync, uint64_t maxFrameNumber)
 {
     ATRACE_CALL();
     ALOGV("updateNoTextureBuffer");
@@ -131,6 +130,14 @@ status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(
                 strerror(-err), err);
         }
         return err;
+    }
+    // We call the rejecter here, in case the caller has a reason to
+    // not accept this buffer.  This is used by SurfaceFlinger to
+    // reject buffers which have the wrong size
+    int buf = item.mBuf;
+    if (rejecter && rejecter->reject(mSlots[buf].mGraphicBuffer, item)) {
+        releaseBufferLocked(buf, mSlots[buf].mGraphicBuffer, EGL_NO_SYNC_KHR);
+        return BUFFER_REJECTED;
     }
 
     // Release the previous buffer.

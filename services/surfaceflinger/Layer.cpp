@@ -99,6 +99,7 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mOmxVideoHandle(0),
         mOmxOverlayLayer(false),
         mOmxFrameCount(0),
+        mOmxFrameCountLock(),
 #endif
         mIsQuickBootAnimation(false)
 {
@@ -194,6 +195,100 @@ void Layer::onLayerDisplayed(const sp<const DisplayDevice>& /* hw */,
     }
 }
 
+#ifdef VIDEO_WORKLOAD_CUT_DOWN
+bool Layer::dropOmxFrame(status_t &updateResult) {
+    struct Reject : public SurfaceFlingerConsumer::BufferRejecter {
+        Layer::State& front;
+        Layer::State& current;
+        bool stickyTransformSet;
+        Reject(Layer::State& front, Layer::State& current,
+                bool stickySet)
+            : front(front), current(current),
+              stickyTransformSet(stickySet) {
+        }
+
+        virtual bool reject(const sp<GraphicBuffer>& buf,
+                const BufferItem& item) {
+            if (buf == NULL) {
+                return false;
+            }
+
+            uint32_t bufWidth  = buf->getWidth();
+            uint32_t bufHeight = buf->getHeight();
+
+            // check that we received a buffer of the right size
+            // (Take the buffer's orientation into account)
+            if (item.mTransform & Transform::ROT_90) {
+                swap(bufWidth, bufHeight);
+            }
+
+            bool isFixedSize = item.mScalingMode != NATIVE_WINDOW_SCALING_MODE_FREEZE;
+
+            if (!isFixedSize && !stickyTransformSet) {
+                if (front.active.w != bufWidth ||
+                    front.active.h != bufHeight) {
+                    // reject this buffer
+                    ALOGE("rejecting buffer: bufWidth=%d, bufHeight=%d, front.active.{w=%d, h=%d}",
+                            bufWidth, bufHeight, front.active.w, front.active.h);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    };
+
+    Reject r(mDrawingState, getCurrentState(), getProducerStickyTransform() != 0);
+
+    updateResult =
+        mSurfaceFlingerConsumer->updateAndReleaseNoTextureBuffer(&r,
+                            mFlinger->mPrimaryDispSync);
+    if (updateResult == BufferQueue::PRESENT_LATER) {
+        // Producer doesn't want buffer to be displayed yet.  Signal a
+        // layer update so we check again at the next opportunity.
+        return false;
+    } else if (updateResult == SurfaceFlingerConsumer::BUFFER_REJECTED) {
+        // If the buffer has been rejected, remove it from the shadow queue
+        // and return early
+        Mutex::Autolock lock(mQueueItemLock);
+        mQueueItems.removeAt(0);
+        android_atomic_dec(&mQueuedFrames);
+        return true;
+    } else if (updateResult != NO_ERROR || mUpdateTexImageFailed) {
+        // This can occur if something goes wrong when trying to create the
+        // EGLImage for this buffer. If this happens, the buffer has already
+        // been released, so we need to clean up the queue and bug out
+        // early.
+        {
+            Mutex::Autolock lock(mQueueItemLock);
+            mQueueItems.clear();
+            android_atomic_and(0, &mQueuedFrames);
+        }
+
+        // Once we have hit this state, the shadow queue may no longer
+        // correctly reflect the incoming BufferQueue's contents, so even if
+        // updateTexImage starts working, the only safe course of action is
+        // to continue to ignore updates.
+        mUpdateTexImageFailed = true;
+        return true;
+    }
+
+    { // Autolock scope
+        auto currentFrameNumber = mSurfaceFlingerConsumer->getFrameNumber();
+
+        Mutex::Autolock lock(mQueueItemLock);
+
+        mQueueItems.removeAt(0);
+
+        // Decrement the queued-frames count.  Signal another event if we
+        // have more frames pending.
+        if (android_atomic_dec(&mQueuedFrames) > 1) return false;
+    }
+
+    return true;
+}
+#endif
+
 void Layer::onFrameAvailable(const BufferItem& item) {
     // Add this buffer from our internal queue tracker
     { // Autolock scope
@@ -231,37 +326,38 @@ void Layer::onFrameAvailable(const BufferItem& item) {
         set_omx_pts((char*)vaddr, &mOmxVideoHandle);
         activeBuffer->unlock();
         mOmxOverlayLayer = true;
-        if (mOmxFrameCount <= 3) {
-            mOmxFrameCount++;
+        {
+            Mutex::Autolock lock(mOmxFrameCountLock);
+            if (mOmxFrameCount <= 3) android_atomic_inc(&mOmxFrameCount);
         }
 
         // this layer do not need update
-        // update and release buffer
-        //ALOGE("Stark: mQueuedFrames: %d", mQueuedFrames);
         if (mOmxFrameCount > 3) {
-            do {
-                if (mQueuedFrames > 0) {
-                    //ALOGE("Stark: update buffer, mQueuedFrames: %d", mQueuedFrames);
-                    status_t updateResult =
-                        mSurfaceFlingerConsumer->updateAndReleaseNoTextureBuffer(mFlinger->mPrimaryDispSync);
-                    if (updateResult == BufferQueue::PRESENT_LATER) {
-                        // Producer doesn't want buffer to be displayed yet.  Signal a
-                        // layer update so we check again at the next opportunity.
-                        mOmxFrameCount = 0;
-                        break;
+            status_t updateResult;
+            if (mQueuedFrames > 0) {
+                do {
+                    updateResult = 0;
+                    if (dropOmxFrame(updateResult)) return;
+                    else if (updateResult == BufferQueue::PRESENT_LATER) {
+                        struct timespec spec;
+                        nsecs_t nextRefreshTime = mFlinger->mPrimaryDispSync.computeNextRefresh(0);
+                        spec.tv_sec  = nextRefreshTime / 1000000000;
+                        spec.tv_nsec = nextRefreshTime % 1000000000;
+                        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &spec, NULL);
+                    } else {
+                        Mutex::Autolock lock(mOmxFrameCountLock);
+                        android_atomic_and(0, &mOmxFrameCount);
                     }
-                    // Remove this buffer from our internal queue tracker
-                    { // Autolock scope
-                        Mutex::Autolock lock(mQueueItemLock);
-                        mQueueItems.removeAt(0);
-                    }
-                }
-            } while (android_atomic_dec(&mQueuedFrames) > 1);
-            if (mOmxFrameCount > 3) return;
+                } while (updateResult == BufferQueue::PRESENT_LATER);
+            } else {
+                ALOGE("this should not happend, mQueuedFrames: %d!", mQueuedFrames);
+                return;
+            }
         }
     } else {
         mOmxOverlayLayer = false;
-        mOmxFrameCount = 0;
+        Mutex::Autolock lock(mOmxFrameCountLock);
+        android_atomic_and(0, &mOmxFrameCount);
     }
 
     if (!mOmxOverlayLayer && mOmxVideoHandle != 0) {

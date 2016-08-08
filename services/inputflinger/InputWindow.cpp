@@ -20,6 +20,7 @@
 #include "InputWindow.h"
 
 #include <cutils/log.h>
+#include <cutils/properties.h>
 
 #include <ui/Rect.h>
 #include <ui/Region.h>
@@ -32,6 +33,11 @@ void InputWindowInfo::addTouchableRegion(const Rect& region) {
 }
 
 bool InputWindowInfo::touchableRegionContainsPoint(int32_t x, int32_t y) const {
+    char property[PROPERTY_VALUE_MAX] = {0};
+    int len = property_get("persist.sys.app.rotation", property, NULL);
+    if ((len <= 0) || (len > 0 && strncmp(property, "middle_port", 11)))
+        return touchableRegion.contains(x, y);
+
     const Rect r(touchableRegion.getBounds());
     return touchableRegion.contains(x + r.left, y);
 }

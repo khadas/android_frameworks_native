@@ -138,6 +138,7 @@ typedef enum {
 
 
     // Add more here...
+    kMetadataBufferTypeCanvasSource = 4,
 
 } MetadataBufferType;
 

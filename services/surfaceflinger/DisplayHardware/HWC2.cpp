@@ -248,8 +248,10 @@ void Device::registerVsyncCallback(VsyncCallback vsync)
 void Device::callHotplug(std::shared_ptr<Display> display, Connection connected)
 {
     if (connected == Connection::Connected) {
+        // TODO: ???
+        display->loadConfigs();
         if (!display->isConnected()) {
-            display->loadConfigs();
+            //display->loadConfigs();
             display->setConnected(true);
         }
     } else {
@@ -872,6 +874,8 @@ void Display::loadConfig(hwc2_config_t configId)
             .setDpiX(getAttribute(configId, Attribute::DpiX))
             .setDpiY(getAttribute(configId, Attribute::DpiY))
             .build();
+    // TODO:Temporary!!! need to clear mConfigs because we only have one active config.
+    mConfigs.clear();
     mConfigs.emplace(configId, std::move(config));
 }
 

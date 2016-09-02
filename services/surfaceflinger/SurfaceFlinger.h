@@ -77,7 +77,8 @@ enum {
     eTransactionNeeded        = 0x01,
     eTraversalNeeded          = 0x02,
     eDisplayTransactionNeeded = 0x04,
-    eTransactionMask          = 0x07
+    ePrimaryHotplugTransction = 0x10,
+    eTransactionMask          = 0x1f
 };
 
 class SurfaceFlinger : public BnSurfaceComposer,

@@ -857,28 +857,33 @@ void SurfaceFlinger::onVSyncReceived(int32_t type, nsecs_t timestamp) {
 }
 
 void SurfaceFlinger::onHotplugReceived(int32_t disp, bool connected) {
-    ALOGV("onHotplugReceived(%d, %s)", disp, connected ? "true" : "false");
+    ALOGE("onHotplugReceived(%d, %s)", disp, connected ? "true" : "false");
     if (disp == DisplayDevice::DISPLAY_PRIMARY) {
         Mutex::Autolock lock(mStateLock);
+        if (mDisplays.isEmpty()) {
+            ALOGE("onHotplugReceived initial primary display here.");
+            // All non-virtual displays are currently considered secure.
+            bool isSecure = true;
 
-        // All non-virtual displays are currently considered secure.
-        bool isSecure = true;
+            int32_t type = DisplayDevice::DISPLAY_PRIMARY;
+            createBuiltinDisplayLocked(DisplayDevice::DISPLAY_PRIMARY);
+            wp<IBinder> token = mBuiltinDisplays[type];
 
-        int32_t type = DisplayDevice::DISPLAY_PRIMARY;
-        createBuiltinDisplayLocked(DisplayDevice::DISPLAY_PRIMARY);
-        wp<IBinder> token = mBuiltinDisplays[type];
+            sp<IGraphicBufferProducer> producer;
+            sp<IGraphicBufferConsumer> consumer;
+            BufferQueue::createBufferQueue(&producer, &consumer,
+                    new GraphicBufferAlloc());
 
-        sp<IGraphicBufferProducer> producer;
-        sp<IGraphicBufferConsumer> consumer;
-        BufferQueue::createBufferQueue(&producer, &consumer,
-                new GraphicBufferAlloc());
-
-        sp<FramebufferSurface> fbs = new FramebufferSurface(*mHwc,
-                DisplayDevice::DISPLAY_PRIMARY, consumer);
-        sp<DisplayDevice> hw = new DisplayDevice(this,
-                DisplayDevice::DISPLAY_PRIMARY, disp, isSecure, token, fbs,
-                producer, mRenderEngine->getEGLConfig());
-        mDisplays.add(token, hw);
+            sp<FramebufferSurface> fbs = new FramebufferSurface(*mHwc,
+                    DisplayDevice::DISPLAY_PRIMARY, consumer);
+            sp<DisplayDevice> hw = new DisplayDevice(this,
+                    DisplayDevice::DISPLAY_PRIMARY, disp, isSecure, token, fbs,
+                    producer, mRenderEngine->getEGLConfig());
+            mDisplays.add(token, hw);
+        }else if (!mDisplays.isEmpty()) {
+            ALOGD("onHotplugReceived update primary display config here.");
+            setTransactionFlags(eDisplayTransactionNeeded | ePrimaryHotplugTransction);
+        }
     } else {
         auto type = DisplayDevice::DISPLAY_EXTERNAL;
         Mutex::Autolock _l(mStateLock);
@@ -1370,6 +1375,11 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
      */
 
     if (transactionFlags & eDisplayTransactionNeeded) {
+        // deal Primary display hotplug
+        if (transactionFlags & ePrimaryHotplugTransction) {
+            mEventThread->onHotplugReceived(DisplayDevice::DISPLAY_PRIMARY, true);
+        }
+
         // here we take advantage of Vector's copy-on-write semantics to
         // improve performance by skipping the transaction entirely when
         // know that the lists are identical

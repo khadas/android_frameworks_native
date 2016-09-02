@@ -176,14 +176,16 @@ void HWComposer::validateChange(HWC2::Composition from, HWC2::Composition to) {
 
 void HWComposer::hotplug(const std::shared_ptr<HWC2::Display>& display,
         HWC2::Connection connected) {
-    ALOGV("hotplug: %" PRIu64 ", %s", display->getId(),
+    ALOGE("hotplug: %" PRIu64 ", %s", display->getId(),
             to_string(connected).c_str());
     int32_t disp = 0;
-    if (!mDisplayData[0].hwcDisplay) {
-        ALOGE_IF(connected != HWC2::Connection::Connected, "Assumed primary"
-                " display would be connected");
-        mDisplayData[0].hwcDisplay = display;
-        mHwcDisplaySlots[display->getId()] = 0;
+    if (display->getId() == DisplayDevice::DISPLAY_PRIMARY) {
+        if (!mDisplayData[0].hwcDisplay) {
+            ALOGE_IF(connected != HWC2::Connection::Connected, "Assumed primary"
+                    " display would be connected");
+            mDisplayData[0].hwcDisplay = display;
+            mHwcDisplaySlots[display->getId()] = 0;
+        }
         disp = DisplayDevice::DISPLAY_PRIMARY;
     } else {
         // Disconnect is handled through HWComposer::disconnectDisplay via

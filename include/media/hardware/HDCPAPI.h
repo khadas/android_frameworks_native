@@ -85,6 +85,9 @@ struct HDCPModule {
     // in the "ext2" argument of the HDCP_INITIALIZATION_COMPLETE callback.
     virtual status_t initAsync(const char *addr, unsigned port) = 0;
 
+    // setup HDCP session with remote Tx
+    virtual status_t initAsyncRx(unsigned port) = 0;
+
     // Request to shutdown the active HDCP session.
     virtual status_t shutdownAsync() = 0;
 
@@ -92,6 +95,9 @@ struct HDCPModule {
     virtual uint32_t getCaps() {
         return HDCP_CAPS_ENCRYPT;
     }
+
+    // Request to shutdown the active HDCP session with remote source.
+    virtual status_t shutdownAsyncRx() = 0;
 
     // ENCRYPTION only:
     // Encrypt data according to the HDCP spec. "size" bytes of data are
@@ -132,7 +138,8 @@ struct HDCPModule {
     // This operation is to be synchronous, i.e. this call does not return
     // until outData contains size bytes of decrypted data.
     // Both streamCTR and inputCTR will be provided by the caller.
-    virtual status_t decrypt(
+    // Changed to static for libplayer
+    static status_t decrypt(
             const void *inData, size_t size,
             uint32_t streamCTR, uint64_t inputCTR,
             void *outData) {

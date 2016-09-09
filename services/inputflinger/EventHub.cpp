@@ -1225,6 +1225,8 @@ status_t EventHub::openDeviceLocked(const char *devicePath) {
         // can fuse it with the touch screen data, so just take them back. Note this means an
         // external stylus cannot also be a keyboard device.
         device->classes &= ~INPUT_DEVICE_CLASS_KEYBOARD;
+        if (!strcmp(identifier.name.string(), "aml_keypad"))//aml keypad is a keyboard, not bluetooth stylus
+            device->classes |= INPUT_DEVICE_CLASS_KEYBOARD;
     }
 
     // See if this device is a joystick.

@@ -485,6 +485,7 @@ status_t HWComposer::prepare(DisplayDevice& displayDevice) {
                 displayData.hasClientComposition = true;
                 break;
             case HWC2::Composition::Device:
+                displayData.hasClientComposition = true;
             case HWC2::Composition::SolidColor:
             case HWC2::Composition::Cursor:
             case HWC2::Composition::Sideband:

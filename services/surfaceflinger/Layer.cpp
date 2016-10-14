@@ -1209,7 +1209,7 @@ bool Layer::isOpaque(const Layer::State& s) const
 {
     // if we don't have a buffer yet, we're translucent regardless of the
     // layer's opaque flag.
-    if (mActiveBuffer == 0) {
+    if (mActiveBuffer == 0 && mSidebandStream == NULL) {
         return false;
     }
 

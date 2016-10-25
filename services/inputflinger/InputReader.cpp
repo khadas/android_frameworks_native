@@ -2243,7 +2243,17 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
         policyFlags = 0;
     }
 
+    char *mKeyMouseState = new char[PROPERTY_VALUE_MAX];
+    property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+
     if (down) {
+        if (scanCode == AKEYCODE_SYM) {
+            if (strcmp(mKeyMouseState, "on")==0) {
+                 property_set("sys.KeyMouse.mKeyMouseState", "off");
+            } else if (strcmp(mKeyMouseState,"off")==0) {
+                 property_set("sys.KeyMouse.mKeyMouseState","on");
+            }
+        }
         // Rotate key codes according to orientation if needed.
         if (mParameters.orientationAware && mParameters.hasAssociatedDisplay) {
             keyCode = rotateKeyCode(keyCode, mOrientation);

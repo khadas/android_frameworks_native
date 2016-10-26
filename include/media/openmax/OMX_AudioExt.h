@@ -48,7 +48,8 @@ typedef enum OMX_AUDIO_CODINGEXTTYPE {
     OMX_AUDIO_CodingAndroidAC3,         /**< AC3 encoded data */
     OMX_AUDIO_CodingAndroidOPUS,        /**< OPUS encoded data */
     OMX_AUDIO_CodingAndroidEAC3,        /**< EAC3 encoded data */
-    OMX_AUDIO_CodingAndroidDTSHD,        /**< EAC3 encoded data */
+    OMX_AUDIO_CodingAndroidDTSHD,        /**< DTSHD encoded data */
+    OMX_AUDIO_CodingAndroidALAC,
 } OMX_AUDIO_CODINGEXTTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_AC3TYPE {
@@ -117,6 +118,43 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE {
     int HwMulChoutCap;
 } OMX_AUDIO_PARAM_ANDROID_DTSHDTYPE;
 
+typedef struct OMX_AUDIO_PARAM_ANDROID_ASFTYPE {
+    OMX_U32 nSize;            /**< Size of this structure, in Bytes */
+    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+    OMX_U32 nPortIndex;       /**< Port that this structure applies to */
+
+    OMX_U16 wFormatTag;
+    OMX_U16 nChannels;
+    OMX_U32 nSamplesPerSec;
+    OMX_U32 nAvgBitratePerSec;
+    OMX_U16 nBlockAlign;
+    OMX_U16 wBitsPerSample;
+    OMX_U16 extradata_size;
+    OMX_U8  *extradata;
+} OMX_AUDIO_PARAM_ASFTYPE;
+
+typedef struct OMX_AUDIO_PARAM_ANDROID_APETYPE {
+    OMX_U32 nSize;            /**< Size of this structure, in Bytes */
+    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+    OMX_U32 nPortIndex;       /**< Port that this structure applies to */
+
+    OMX_U16 nChannels;
+    OMX_U32 nSamplesPerSec;
+    OMX_U16 wBitsPerSample;
+    OMX_U16 extradata_size;
+    OMX_U8  *extradata;
+} OMX_AUDIO_PARAM_APETYPE;
+
+typedef struct OMX_AUDIO_PARAM_ANDROID_ALACTYPE {
+    OMX_U32 nSize;            /**< Size of this structure, in Bytes */
+    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+    OMX_U32 nPortIndex;       /**< Port that this structure applies to */
+
+    OMX_U16 nChannels;
+    OMX_U32 nSamplesPerSec;
+    OMX_U16 extradata_size;
+    OMX_U8 *extradata;
+} OMX_AUDIO_PARAM_ALACTYPE;
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

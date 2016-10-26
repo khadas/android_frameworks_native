@@ -94,6 +94,7 @@ typedef enum OMX_VIDEO_CODINGTYPE {
     OMX_VIDEO_CodingVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
     OMX_VIDEO_CodingRV10,         /**< all versions of Real Video */
     OMX_VIDEO_CodingRV20,
+    OMX_VIDEO_CodingRV30,
     OMX_VIDEO_CodingRV40,		  /**< all versions of Real Video */
     OMX_VIDEO_CodingMax = 0x7FFFFFFF
 } OMX_VIDEO_CODINGTYPE;
@@ -1078,6 +1079,19 @@ typedef struct OMX_VIDEO_CONFIG_NALSIZE {
     OMX_U32 nPortIndex;
     OMX_U32 nNaluBytes;
 } OMX_VIDEO_CONFIG_NALSIZE;
+
+/**
+ * AML RM/WMV2 Video information
+ */
+typedef struct OMX_VIDEO_INFO {
+    OMX_U32 nSize;
+    OMX_VERSIONTYPE nVersion;
+    OMX_U32 nPortIndex;
+    OMX_U8  mExtraData[128];
+    OMX_U32 nExtraDataSize;
+    OMX_U32 width;
+    OMX_U32 height;
+} OMX_VIDEO_INFO;
 
 /** @} */
 

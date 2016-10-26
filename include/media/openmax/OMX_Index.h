@@ -195,6 +195,9 @@ typedef enum OMX_INDEXTYPE {
     OMX_IndexConfigVideoAVCIntraPeriod,     /**< reference: OMX_VIDEO_CONFIG_AVCINTRAPERIOD */
     OMX_IndexConfigVideoNalSize,            /**< reference: OMX_VIDEO_CONFIG_NALSIZE */
 
+   // specific added by amlogic to enhance omx to support SW RM/WMV2 video decoder */
+    OMX_IndexParamVideoInfo,                /**< reference: OMX_VIDEO_INFO */
+
     /* Image & Video common Configurations */
     OMX_IndexCommonStartUnused = 0x07000000,
     OMX_IndexParamCommonDeblocking,         /**< reference: OMX_PARAM_DEBLOCKINGTYPE */

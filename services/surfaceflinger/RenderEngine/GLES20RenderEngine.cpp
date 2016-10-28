@@ -34,6 +34,10 @@
 #include "Description.h"
 #include "Mesh.h"
 #include "Texture.h"
+#include <linux/compiler.h>
+
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -259,7 +263,15 @@ void GLES20RenderEngine::drawMesh(const Mesh& mesh) {
             mesh.getByteStride(),
             mesh.getPositions());
 
-    glDrawArrays(mesh.getPrimitive(), 0, mesh.getVertexCount());
+    /*-----modify for 3D----*/
+    if (likely(mesh.getDrawCount() == 4)) {
+        glDrawArrays(mesh.getPrimitive(), 0, 4);
+    } else if (mesh.getDrawCount() == 8) {
+       glDrawArrays(mesh.getPrimitive(), 4, 4);
+       glDrawArrays(mesh.getPrimitive(), 0, 4);
+    } else {
+       glDrawArrays(mesh.getPrimitive(), 0, mesh.getVertexCount());
+    }
 
     if (mesh.getTexCoordsSize()) {
         glDisableVertexAttribArray(Program::texCoords);

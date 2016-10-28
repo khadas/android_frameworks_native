@@ -159,6 +159,8 @@ public:
             uint32_t layerStack);
     static void setDisplaySize(const sp<IBinder>& token, uint32_t width, uint32_t height);
 
+    static void setDisplay2Stereoscopic(int , uint32_t);
+
     /* setDisplayProjection() defines the projection of layer stacks
      * to a given display.
      *

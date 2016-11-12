@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// #define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
 #include <stdint.h>
@@ -116,6 +116,25 @@ static const int64_t vsyncPhaseOffsetNs = VSYNC_EVENT_PHASE_OFFSET_NS;
 
 // This is the phase offset at which SurfaceFlinger's composition runs.
 static const int64_t sfVsyncPhaseOffsetNs = SF_VSYNC_EVENT_PHASE_OFFSET_NS;
+
+#define SYSFS_FB0_BLANK       "/sys/class/graphics/fb0/blank"
+#define SYSFS_PPMGR_SCALE  "/sys/class/ppmgr/ppscaler"
+#define SYSFS_PPMGR_SCALE_RECT "/sys/class/ppmgr/ppscaler_rect"
+#define SYSFS_FB0_FREESCALE      "/sys/class/graphics/fb0/free_scale"
+#define SYSFS_FB0_SCALE_AXIS   "/sys/class/graphics/fb0/scale_axis"
+#define SYSFS_FB0_SCALE        "/sys/class/graphics/fb0/scale"
+#define SYSFS_FB1_SCALE     "/sys/class/graphics/fb1/scale"
+#define SYSFS_FB1_SCALE_AXIS  "/sys/class/graphics/fb1/scale_axis"
+#define SYSFS_VIDEO_AXIS     "/sys/class/video/axis"
+#define SYSFS_DISPLAY_AXIS   "/sys/class/display/axis"
+#define SYSFS_VIDEOLAYERSTATE "/sys/class/video/video_layer1_state"
+
+#define SYSCMD_BUFSIZE   32
+
+int amsysfsSetStr(const char *path, const char *val);
+int amsysfsGetStr(const char *path, char *valstr, int size);
+int amsysfsGetInt(const char *path);
+int waitVideoUnreg();
 
 // ---------------------------------------------------------------------------
 
@@ -310,6 +329,20 @@ void SurfaceFlinger::bootFinished()
     // can choose where to stop the animation.
     property_set("service.bootanim.exit", "1");
 
+    char value[PROPERTY_VALUE_MAX] = {0};
+    property_get("service.bootvideo", value, "0");
+    if (atoi(value) == 1) {
+        //stop boot video
+        do {
+            //wait bootvideo daemon exit
+            property_get("init.svc.bootvideo", value, "NULL");
+        } while (!strcmp(value, "running"));
+        property_set("service.bootvideo.exit", "1");
+
+        ALOGI("boot video exited, open osd");
+        amsysfsSetStr(SYSFS_FB0_BLANK, "0");
+        amsysfsSetStr("/sys/class/video/disable_video", "2");
+    }
     const int LOGTAG_SF_STOP_BOOTANIM = 60110;
     LOG_EVENT_LONG(LOGTAG_SF_STOP_BOOTANIM,
                    ns2ms(systemTime(SYSTEM_TIME_MONOTONIC)));
@@ -506,9 +539,17 @@ void SurfaceFlinger::init() {
 }
 
 void SurfaceFlinger::startBootAnim() {
-    // start boot animation
-    property_set("service.bootanim.exit", "0");
-    property_set("ctl.start", "bootanim");
+    char value[PROPERTY_VALUE_MAX] = {0};
+    property_get("service.bootvideo", value, "0");
+    if (atoi(value) == 1) {
+        // start boot video
+        property_set("ctl.start", "bootvideo");
+    }
+    else {
+        // start boot animation
+        property_set("service.bootanim.exit", "0");
+        property_set("ctl.start", "bootanim");
+    }
 }
 
 size_t SurfaceFlinger::getMaxTextureSize() const {
@@ -1935,6 +1976,72 @@ void SurfaceFlinger::doDisplayComposition(const sp<const DisplayDevice>& hw,
 
     // swap buffers (presentation)
     hw->swapBuffers(getHwComposer());
+}
+
+int waitVideoUnreg()
+{
+    int ret = 0;
+    int waitcount = 0;
+    char buf[32]={0};
+    ret = amsysfsGetStr("/sys/module/amvideo/parameters/new_frame_count", buf, 32);
+    while ((ret >= 0) && (!strstr(buf, "0"))) {
+        if (waitcount > 500) {
+            return -1;
+        }
+        waitcount++;
+        usleep(500);
+        memset(buf,0,sizeof(buf));
+        ret = amsysfsGetStr("/sys/module/amvideo/parameters/new_frame_count", buf, 32);
+    }
+    return 0;
+}
+
+int  amsysfsGetStr(const char *path, char *valstr, int size)
+{
+    int fd;
+    int count = 0;
+    fd = open(path, O_RDONLY);
+    if (fd >= 0) {
+        count = read(fd, valstr, size - 1);
+        valstr[count] = '\0';
+        close(fd);
+    } else {
+        sprintf(valstr, "%s", "fail");
+        return -1;
+    };
+
+    return 0;
+}
+
+int amsysfsSetStr(const char *path, const char *val)
+{
+    int fd;
+    int bytes;
+    fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    if (fd >= 0) {
+        bytes = write(fd, val, strlen(val));
+        ALOGI("amsysfsSetStr %s= %s\n", path,val);
+        close(fd);
+        return 0;
+    } else {
+    }
+    return -1;
+}
+
+int amsysfsGetInt(const char *path)
+{
+    int fd;
+    int val = 0;
+    char  bcmd[16];
+    fd = open(path, O_RDONLY);
+    if (fd >= 0) {
+        read(fd, bcmd, sizeof(bcmd));
+        val = strtol(bcmd, NULL, 10);
+        close(fd);
+    } else {
+        ALOGE("amsysfsGetInt %s, err: %s", path, strerror(errno));
+    }
+    return val;
 }
 
 bool SurfaceFlinger::doComposeSurfaces(

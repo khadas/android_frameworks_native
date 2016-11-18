@@ -2246,6 +2246,9 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
     char *mKeyMouseState = new char[PROPERTY_VALUE_MAX];
     property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
 
+    char *mFunctionKeyState = new char[PROPERTY_VALUE_MAX];
+    property_get("persist.sys.function.key.state",mFunctionKeyState, "Home");
+
     if (down) {
         if (scanCode == AKEYCODE_SYM) {
             if (strcmp(mKeyMouseState, "on")==0) {
@@ -2335,6 +2338,21 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
         getContext()->fadePointer();
     }
 
+    if (scanCode == 300) {
+       if (strcmp(mFunctionKeyState,"Home") == 0) {
+         keyCode = AKEYCODE_HOME;
+       } else if (strcmp(mFunctionKeyState,"VolumeUp") == 0) {
+         keyCode = AKEYCODE_VOLUME_UP;
+       } else if (strcmp(mFunctionKeyState,"VolumeDown") == 0) {
+         keyCode = AKEYCODE_VOLUME_DOWN;
+       } else if (strcmp(mFunctionKeyState,"Back") == 0) {
+         keyCode = AKEYCODE_BACK;
+       } else if (strcmp(mFunctionKeyState,"Menu") == 0) {
+         keyCode = AKEYCODE_MENU;
+       } else if (strcmp(mFunctionKeyState,"Enter") == 0) {
+         keyCode = AKEYCODE_ENTER;
+       }
+    }
     NotifyKeyArgs args(when, getDeviceId(), mSource, policyFlags,
             down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP,
             AKEY_EVENT_FLAG_FROM_SYSTEM, keyCode, scanCode, keyMetaState, downTime);

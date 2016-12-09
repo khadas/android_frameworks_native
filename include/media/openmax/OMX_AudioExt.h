@@ -51,6 +51,7 @@ typedef enum OMX_AUDIO_CODINGEXTTYPE {
     OMX_AUDIO_CodingAndroidDTSHD,        /**< DTSHD encoded data */
     OMX_AUDIO_CodingAndroidALAC,
     OMX_AUDIO_CodingAndroidTRUEHD,
+    OMX_AUDIO_CodingFFMPEG,              /**< ffmpeg audio encoded data */
 } OMX_AUDIO_CODINGEXTTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_AC3TYPE {
@@ -133,6 +134,22 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_ASFTYPE {
     OMX_U16 extradata_size;
     OMX_U8  extradata[128];
 } OMX_AUDIO_PARAM_ASFTYPE;
+
+/** Ffmpeg params */
+typedef struct OMX_AUDIO_PARAM_FFMPEGTYPE {
+    OMX_U32 nSize;              /**< Size of this structure, in Bytes */
+    OMX_VERSIONTYPE nVersion;   /**< OMX specification version information */
+    OMX_U32 nPortIndex;         /**< Port that this structure applies to */
+    OMX_U32 nChannels;          /**< Number of channels */
+    OMX_U32 nBitRate;           /**< Bit rate of the input data.  Use 0 for variable
+                                                                  rate or unknown bit rates */
+    OMX_U32 nSamplingRate;      /**< is the sampling rate of the source data */
+    OMX_U32 nBitPerSample;      /**< Bit per sample */
+    OMX_U32 nBlockAlign;        /**< block align */
+    OMX_U32 nCodecID;           /**<codec id **/
+    OMX_U32 nExtraData_Size;     /** extra data size **/
+    OMX_U8 nExtraData[1];          /** extra data point **/
+} OMX_AUDIO_PARAM_FFMPEGTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_APETYPE {
     OMX_U32 nSize;            /**< Size of this structure, in Bytes */

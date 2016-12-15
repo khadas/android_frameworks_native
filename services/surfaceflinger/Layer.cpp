@@ -51,6 +51,9 @@
 
 #include "RenderEngine/RenderEngine.h"
 
+#include <linux/compiler.h>
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
 #define DEBUG_RESIZE    0
 
 namespace android {
@@ -82,7 +85,7 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mFrameLatencyNeeded(false),
         mFiltering(false),
         mNeedsFiltering(false),
-        mMesh(Mesh::TRIANGLE_FAN, 4, 2, 2),
+        mMesh(Mesh::TRIANGLE_FAN, 8, 2, 2),
 #ifndef USE_HWC2
         mIsGlesComposition(false),
 #endif
@@ -1024,10 +1027,47 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
     // TODO: we probably want to generate the texture coords with the mesh
     // here we assume that we only have 4 vertices
     Mesh::VertexArray<vec2> texCoords(mMesh.getTexCoordArray<vec2>());
-    texCoords[0] = vec2(left, 1.0f - top);
-    texCoords[1] = vec2(left, 1.0f - bottom);
-    texCoords[2] = vec2(right, 1.0f - bottom);
-    texCoords[3] = vec2(right, 1.0f - top);
+
+    const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    const float magicNum = 0.0001f;
+    uint32_t count= mMesh.getVertexCount();
+
+    //ALOGE("drawWithOpenGL layer mName %s, mIsSkip3D is %d",mName.string(),mIsSkip3D);
+    if (unlikely(count == 8 && (disp.expected3DFormat & e3dLeftRight))) {
+        texCoords[0] = vec2(left - magicNum, 1.0f - top);
+        texCoords[1] = vec2(left - magicNum, 1.0f - bottom);
+        texCoords[2] = vec2(right - magicNum, 1.0f - bottom);
+        texCoords[3] = vec2(right - magicNum, 1.0f - top);
+        texCoords[4] = vec2(left + magicNum, 1.0f - top);
+        texCoords[5] = vec2(left + magicNum, 1.0f - bottom);
+        texCoords[6] = vec2(right + magicNum, 1.0f - bottom);
+        texCoords[7] = vec2(right + magicNum, 1.0f - top);
+    } else if (unlikely(count == 8 && (disp.expected3DFormat & e3dTopBottom))) {
+        if (win.bottom != (int32_t)s.active.h) {
+            texCoords[0] = vec2(left, 1.0f - top);
+            texCoords[1] = vec2(left, 1.0f - bottom);
+            texCoords[2] = vec2(right, 1.0f - bottom);
+            texCoords[3] = vec2(right, 1.0f - top);
+            texCoords[4] = vec2(left, 1.0f - top);
+            texCoords[5] = vec2(left, 1.0f - bottom);
+            texCoords[6] = vec2(right, 1.0f - bottom);
+            texCoords[7] = vec2(right, 1.0f - top);
+        } else {
+            texCoords[0] = vec2(left, (1.0f - top));
+            texCoords[1] = vec2(left, (1.0f - (bottom - magicNum)));
+            texCoords[2] = vec2(right, (1.0f - (bottom - magicNum)));
+            texCoords[3] = vec2(right, (1.0f - top));
+            texCoords[4] = vec2(left, (1.0f - top));
+            texCoords[5] = vec2(left, (1.0f - (bottom - magicNum)));
+            texCoords[6] = vec2(right, (1.0f - (bottom - magicNum)));
+            texCoords[7] = vec2(right, (1.0f - top));
+        }
+    } else {
+        texCoords[0] = vec2(left, 1.0f - top);
+        texCoords[1] = vec2(left, 1.0f - bottom);
+        texCoords[2] = vec2(right, 1.0f - bottom);
+        texCoords[3] = vec2(right, 1.0f - top);
+    }
 
     RenderEngine& engine(mFlinger->getRenderEngine());
     engine.setupLayerBlending(mPremultipliedAlpha, isOpaque(s), s.alpha);
@@ -1176,23 +1216,67 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     // subtract the transparent region and snap to the bounds
     win = reduce(win, s.activeTransparentRegion);
 
+    const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    Rect r = hw->getViewport();
+    uint32_t tmp_width = r.width();
+    uint32_t tmp_height = r.height();
+    uint32_t count= mesh.getVertexCount();
+
     vec2 lt = vec2(win.left, win.top);
     vec2 lb = vec2(win.left, win.bottom);
     vec2 rb = vec2(win.right, win.bottom);
     vec2 rt = vec2(win.right, win.top);
+    vec2 lt2 = vec2(0, 0);
+    vec2 lb2 = vec2(0, 0);
+    vec2 rb2 = vec2(0, 0);
+    vec2 rt2 = vec2(0, 0);
+
+    if (unlikely(count == 8 && (disp.expected3DFormat & e3dLeftRight))) {
+        // left-right
+        lt = vec2(win.left / 2, win.top);
+        lb = vec2(win.left / 2, win.bottom);
+        rb = vec2(win.right / 2, win.bottom);
+        rt = vec2(win.right / 2, win.top);
+        lt2 = vec2((tmp_width + win.left) / 2, win.top);
+        lb2 = vec2((tmp_width + win.left) / 2, win.bottom);
+        rb2 = vec2((tmp_width + win.right) / 2, win.bottom);
+        rt2 = vec2((tmp_width + win.right) / 2, win.top);
+    } else if (unlikely(count == 8 && (disp.expected3DFormat & e3dTopBottom))) {
+        // top-bottom, cupute the android-window axis
+        lt = vec2(win.left, (win.top + 1) / 2);
+        lb = vec2(win.left, (win.bottom + 1) / 2);
+        rb = vec2(win.right, (win.bottom + 1) / 2);
+        rt = vec2(win.right, (win.top + 1) / 2);
+        lt2 = vec2(win.left, (tmp_height + win.top + 1) / 2);
+        lb2 = vec2(win.left, (tmp_height + win.bottom + 1) / 2);
+        rb2 = vec2(win.right, (tmp_height+win.bottom + 1) / 2);
+        rt2 = vec2(win.right, (tmp_height + win.top + 1) / 2);
+    }
 
     if (!useIdentityTransform) {
         lt = s.active.transform.transform(lt);
         lb = s.active.transform.transform(lb);
         rb = s.active.transform.transform(rb);
         rt = s.active.transform.transform(rt);
+        if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
+            lt2 = s.active.transform.transform(lt2);
+            lb2 = s.active.transform.transform(lb2);
+            rb2 = s.active.transform.transform(rb2);
+            rt2 = s.active.transform.transform(rt2);
+        }
     }
 
     if (!s.finalCrop.isEmpty()) {
-        boundPoint(&lt, s.finalCrop);
-        boundPoint(&lb, s.finalCrop);
-        boundPoint(&rb, s.finalCrop);
-        boundPoint(&rt, s.finalCrop);
+            boundPoint(&lt, s.finalCrop);
+            boundPoint(&lb, s.finalCrop);
+            boundPoint(&rb, s.finalCrop);
+            boundPoint(&rt, s.finalCrop);
+        if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
+            boundPoint(&lt2, s.finalCrop);
+            boundPoint(&lb2, s.finalCrop);
+            boundPoint(&rb2, s.finalCrop);
+            boundPoint(&rt2, s.finalCrop);
+        }
     }
 
     Mesh::VertexArray<vec2> position(mesh.getPositionArray<vec2>());
@@ -1200,7 +1284,20 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     position[1] = tr.transform(lb);
     position[2] = tr.transform(rb);
     position[3] = tr.transform(rt);
-    for (size_t i=0 ; i<4 ; i++) {
+
+    //ALOGE("computeGeometry layer mName %s, mIsSkip3D is %d", mName.string(), mIsSkip3D);
+    if (unlikely(count == 8 && (disp.expected3DFormat & e3dMask))) {
+        // left-right
+        position[4] = tr.transform(lt2);
+        position[5] = tr.transform(lb2);
+        position[6] = tr.transform(rb2);
+        position[7] = tr.transform(rt2);
+        mesh.setDrawCount(8);
+    } else {
+        mesh.setDrawCount(4);
+    }
+
+    for (size_t i=0 ; i<mesh.getDrawCount(); i++) {
         position[i].y = hw_h - position[i].y;
     }
 }
@@ -1502,6 +1599,16 @@ bool Layer::setPosition(float x, float y, bool immediate) {
     if (mCurrentState.requested.transform.tx() == x && mCurrentState.requested.transform.ty() == y)
         return false;
     mCurrentState.sequence++;
+
+    /*---Add for 3D case,the screen is divided into 2 part,so need to set the vertext in half----*/
+    const SurfaceFlinger::DisplayDeviceState& disp(mFlinger->mCurrentState.displays.valueAt(0));
+    if (unlikely(disp.expected3DFormat& e3dLeftRight)) {
+        x = x/(float)2.0;
+        if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+    } else if (unlikely(disp.expected3DFormat & e3dTopBottom)) {
+        y = y/(float)2.0;
+        if (false) ALOGW("Set the Vertex(%f,%f) in half!!\n ", x,  y);
+    }
 
     // We update the requested and active position simultaneously because
     // we want to apply the position portion of the transform matrix immediately,

@@ -241,6 +241,7 @@ sp<IBinder> SurfaceFlinger::createDisplay(const String8& displayName,
     Mutex::Autolock _l(mStateLock);
     DisplayDeviceState info(DisplayDevice::DISPLAY_VIRTUAL, secure);
     info.displayName = displayName;
+    info.expected3DFormat = 0;
     mCurrentState.displays.add(token, info);
 
     return token;
@@ -272,6 +273,7 @@ void SurfaceFlinger::createBuiltinDisplayLocked(DisplayDevice::DisplayType type)
     mBuiltinDisplays[type] = new BBinder();
     // All non-virtual displays are currently considered secure.
     DisplayDeviceState info(type, true);
+    info.expected3DFormat = 0;
     mCurrentState.displays.add(mBuiltinDisplays[type], info);
 }
 
@@ -2249,6 +2251,12 @@ uint32_t SurfaceFlinger::setDisplayStateLocked(const DisplayState& s)
                 flags |= eDisplayTransactionNeeded;
             }
         }
+        if (what & DisplayState::e3dChanged) {
+            if (disp.expected3DFormat != s.want3D) {
+                ALOGD("----- 3d Format  changed --format %u- ", s.e3dChanged);
+                disp.expected3DFormat = s.want3D;
+            }
+        }
     }
     return flags;
 }
@@ -2458,6 +2466,7 @@ void SurfaceFlinger::onInitializeDisplays() {
     d.viewport.makeInvalid();
     d.width = 0;
     d.height = 0;
+    d.want3D = 0;
     displays.add(d);
     setTransactionState(state, displays, 0);
     setPowerModeInternal(getDisplayDevice(d.token), HWC_POWER_MODE_NORMAL);

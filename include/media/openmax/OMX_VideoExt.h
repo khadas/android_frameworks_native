@@ -42,13 +42,19 @@ extern "C" {
 
 #include <OMX_Video.h>
 
+/** add by amlogic */
 typedef enum OMX_VIDEO_CODINGEXTTYPE {
-    OMX_VIDEO_ExtCodingUnused = OMX_VIDEO_CodingKhronosExtensions,
+    OMX_VIDEO_ExtCodingUnused = OMX_VIDEO_CodingVendorStartUnused,
     OMX_VIDEO_CodingVC1,
     OMX_VIDEO_CodingVP6,        /**< VP6 */
     OMX_VIDEO_CodingMSMPEG4,    /**< MSMPEG4 */
     OMX_VIDEO_CodingSorenson,  /**< Sorenson codec*/
     OMX_VIDEO_CodingWMV3,
+    OMX_VIDEO_CodingVPX,        /**< Google VPX, formerly known as On2 VP6 */
+    OMX_VIDEO_CodingRV10,         /**< all versions of Real Video */
+    OMX_VIDEO_CodingRV20,
+    OMX_VIDEO_CodingRV30,
+    OMX_VIDEO_CodingRV40,		  /**< all versions of Real Video */
 } OMX_VIDEO_CODINGEXTTYPE;
 /** NALU Formats */
 typedef enum OMX_NALUFORMATSTYPE {

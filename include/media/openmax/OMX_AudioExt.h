@@ -130,7 +130,7 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_ASFTYPE {
     OMX_U16 nBlockAlign;
     OMX_U16 wBitsPerSample;
     OMX_U16 extradata_size;
-    OMX_U8  *extradata;
+    OMX_U8  extradata[128];
 } OMX_AUDIO_PARAM_ASFTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_APETYPE {

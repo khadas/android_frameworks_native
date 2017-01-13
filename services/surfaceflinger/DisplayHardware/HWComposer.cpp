@@ -518,6 +518,17 @@ status_t HWComposer::prepare(DisplayDevice& displayDevice) {
 
     displayData.hasClientComposition = false;
     displayData.hasDeviceComposition = false;
+
+    /*AML TODO:
+        At now our hwc can't support hw compose for virtual display.
+        But in scene with no layers on virtual display, the default logic is using HWC.
+        Set the client compostion here to tell surfaceflinger, we always use gles compose
+        for virutal display.
+    */
+    if (displayDevice.getDisplayType() == DisplayDevice::DISPLAY_VIRTUAL) {
+        displayData.hasClientComposition = true;
+    }
+
     for (auto& layer : displayDevice.getVisibleLayersSortedByZ()) {
         auto hwcLayer = layer->getHwcLayer(displayId);
 

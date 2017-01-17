@@ -50,6 +50,7 @@ typedef enum OMX_AUDIO_CODINGEXTTYPE {
     OMX_AUDIO_CodingAndroidEAC3,        /**< EAC3 encoded data */
     OMX_AUDIO_CodingAndroidDTSHD,        /**< DTSHD encoded data */
     OMX_AUDIO_CodingAndroidALAC,
+    OMX_AUDIO_CodingAndroidTRUEHD,
 } OMX_AUDIO_CODINGEXTTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_AC3TYPE {
@@ -144,6 +145,18 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_APETYPE {
     OMX_U16 extradata_size;
     OMX_U8  *extradata;
 } OMX_AUDIO_PARAM_APETYPE;
+
+typedef struct OMX_AUDIO_PARAM__ANDROID_TRUEHDTYPE {
+    OMX_U32 nSize; /**< size of the structure in bytes */
+    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+    OMX_U32 nPortIndex; /**< port that this structure applies to */
+
+    OMX_U16 nChannels;
+    OMX_U32 nSamplesPerSec;
+    OMX_U16 wBitsPerSample;
+    OMX_BOOL bExtendFormat; /**< Using extend format for output 4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data*/
+    OMX_U32 nAudioCodec; /**< AudioCodec. 1.ac3 2.eac3. */
+} OMX_AUDIO_PARAM__ANDROID_TRUEHDTYPE;
 
 typedef struct OMX_AUDIO_PARAM_ANDROID_ALACTYPE {
     OMX_U32 nSize;            /**< Size of this structure, in Bytes */

@@ -2266,6 +2266,10 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
 uint32_t Layer::getEffectiveUsage(uint32_t usage) const
 {
     // TODO: should we do something special if mSecure is set?
+    if (isSecure()) {
+        // secure layer - add by aml.
+        usage |= GraphicBuffer::USAGE_AML_SECURE;
+    }
     if (mProtectedByApp) {
         // need a hardware-protected path to external video sink
         usage |= GraphicBuffer::USAGE_PROTECTED;

@@ -16,6 +16,7 @@
 
 // This is needed for stdint.h to define INT64_MAX in C++
 #define __STDC_LIMIT_MACROS
+#define FPS_CAL_COUNTS (80) // at least the 2 frames to caluate, the max is NUM_FRAME_RECORDS.
 
 #include <inttypes.h>
 
@@ -246,6 +247,66 @@ void FrameTracker::dumpStats(String8& result) const {
             mFrameRecords[index].frameReadyTime);
     }
     result.append("\n");
+
+    dumpFps(true, result);
+}
+
+int FrameTracker::getValidStartFrame(int iEnd, int iStep, int iCount) const {
+    int iCur = iEnd;
+
+    while (iCount > 0) {
+        iCount -- ;
+        iCur = (iCur + NUM_FRAME_RECORDS + iStep) % NUM_FRAME_RECORDS;
+        if (!isFrameValidLocked(iCur)) {
+            return -1;
+        }
+    }
+
+    return iCur;
+}
+
+void FrameTracker::logIntimeFps(bool bFullInfo) {
+    String8 result;
+    dumpFps(bFullInfo, result);
+    ALOGD("%s\n", result.string());
+}
+
+void FrameTracker::dumpFps(bool bAverFps, String8& result ) const {
+    float fps = 0.0;
+
+    //find the latest displayed buffer
+    int iDisplayed = mOffset;
+    int iChecked = 4;
+    do {
+        iDisplayed = (iDisplayed - 1) % NUM_FRAME_RECORDS;
+        iChecked --;
+        if (iChecked <= 0)
+            break;
+    } while(!isFrameValidLocked(iDisplayed));
+
+    if (iChecked <= 0) {
+        result.appendFormat("No valid data %zu !\n", mOffset);
+        return;
+    }
+
+    size_t iCalFrames = FPS_CAL_COUNTS;
+    if (!bAverFps) {
+        iCalFrames = 2;
+    }
+
+    int iCalStart = getValidStartFrame(iDisplayed, -1, iCalFrames - 1);
+    if (iCalStart == -1) {
+        result.appendFormat("Too few frames to cal fps %zu, %d \n", iCalFrames, iDisplayed);
+        return ;
+    }
+
+    fps = 1000000000 / ((mFrameRecords[iDisplayed].actualPresentTime -mFrameRecords[iCalStart].actualPresentTime ) / (iCalFrames - 1) );
+    if (!bAverFps) {
+        result.appendFormat("INS-FPS ");
+    } else {
+        result.appendFormat("AVR_FPS ");
+    }
+    result.appendFormat("(%zu): (%" PRId64 " ~ %" PRId64 ")/(%zu: %d - %d) = %f .", mOffset, mFrameRecords[iCalStart].actualPresentTime, mFrameRecords[iDisplayed].actualPresentTime, iCalFrames - 1, iCalStart, iDisplayed, fps);
 }
 
 } // namespace android

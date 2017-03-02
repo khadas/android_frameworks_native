@@ -596,6 +596,8 @@ private:
     };
     mutable Mutex mBufferingStatsMutex;
     std::unordered_map<std::string, BufferingStats> mBufferingStats;
+    FrameTracker mFpsTracker;
+    bool mEnableFps;
 };
 
 }; // namespace android

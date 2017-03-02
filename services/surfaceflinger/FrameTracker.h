@@ -91,6 +91,12 @@ public:
     // dumpStats dump appends the current frame display time history to the result string.
     void dumpStats(String8& result) const;
 
+    //dump in-time fps and average fps
+    void dumpFps(bool bAverFps, String8& result) const;
+
+    //use logd to dump fps.
+    void logIntimeFps(bool bFullInfo);
+
 private:
     struct FrameRecord {
         FrameRecord() :
@@ -127,6 +133,8 @@ private:
     // isFrameValidLocked returns true if the data for the given frame index is
     // valid and has all arrived (i.e. there are no oustanding fences).
     bool isFrameValidLocked(size_t idx) const;
+
+    int getValidStartFrame(int iEnd, int iStep, int iCount) const;
 
     // mFrameRecords is the circular buffer storing the tracked data for each
     // frame.

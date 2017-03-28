@@ -40,7 +40,8 @@ LOCAL_SRC_FILES := \
 
 LOCAL_C_INCLUDES := \
 	frameworks/native/vulkan/include \
-	external/vulkan-validation-layers/libs/vkjson
+	external/vulkan-validation-layers/libs/vkjson \
+	hardware/amlogic/gralloc
 
 LOCAL_CFLAGS := -DLOG_TAG=\"SurfaceFlinger\"
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES

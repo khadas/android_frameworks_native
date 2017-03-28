@@ -51,6 +51,9 @@
 
 #include "RenderEngine/RenderEngine.h"
 
+//amlogic extenstion
+#include <gralloc_usage_ext.h>
+
 #include <linux/compiler.h>
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
@@ -2268,7 +2271,7 @@ uint32_t Layer::getEffectiveUsage(uint32_t usage) const
     // TODO: should we do something special if mSecure is set?
     if (isSecure()) {
         // secure layer - add by aml.
-        usage |= GraphicBuffer::USAGE_AML_SECURE;
+        usage |= GRALLOC_USAGE_AML_SECURE;
     }
     if (mProtectedByApp) {
         // need a hardware-protected path to external video sink

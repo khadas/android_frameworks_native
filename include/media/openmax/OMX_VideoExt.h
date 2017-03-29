@@ -269,6 +269,13 @@ typedef struct OMX_VIDEO_FORCESHUTDOWMCOMPONENT{
     OMX_BOOL isForceShutdowm;
 } OMX_VIDEO_FORCESHUTDOWMCOMPONENT;
 
+typedef struct OMX_VIDEO_PARAM_IS_MVC {
+    OMX_U32 nSize;
+    OMX_VERSIONTYPE nVersion;
+    OMX_U32 nPortIndex;
+    OMX_BOOL bIsMVC;
+} OMX_VIDEO_PARAM_IS_MVC;
+
 /** Structure to return timestamps of rendered output frames as well as EOS
  *  for tunneled components.
  */

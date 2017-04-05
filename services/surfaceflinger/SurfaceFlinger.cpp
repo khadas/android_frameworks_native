@@ -350,6 +350,7 @@ void SurfaceFlinger::bootFinished()
         ALOGI("boot video exited, open osd");
         amsysfs_set_sysfs_str(SYSFS_FB0_BLANK, "0");
         amsysfs_set_sysfs_str("/sys/class/video/disable_video", "2");
+        amsysfs_set_sysfs_str("/sys/class/video/free_cma_buffer", "1");
     }
 }
 

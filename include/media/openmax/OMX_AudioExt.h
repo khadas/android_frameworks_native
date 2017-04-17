@@ -72,6 +72,15 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_EAC3TYPE {
                                         variable or unknown sampling rate. */
 } OMX_AUDIO_PARAM_ANDROID_EAC3TYPE;
 
+typedef struct OMX_AUDIO_PARAM_DOLBYAUDIOTYPE {
+    OMX_U32 nSize;            /**< size of the structure in bytes */
+    OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
+    OMX_U32 nPortIndex;       /**< port that this structure applies to */
+    OMX_BOOL bExtendFormat;        /**< Using extend format for output  4Bytes PCM size + pcm data + 4Bytes Raw size + Raw data*/
+    OMX_U32 nAudioCodec;      /**< AudioCodec.  1.ac3 2.eac3. */
+} OMX_AUDIO_PARAM_DOLBYAUDIOTYPE;
+
+
 typedef struct OMX_AUDIO_PARAM_ANDROID_OPUSTYPE {
     OMX_U32 nSize;            /**< size of the structure in bytes */
     OMX_VERSIONTYPE nVersion; /**< OMX specification version information */

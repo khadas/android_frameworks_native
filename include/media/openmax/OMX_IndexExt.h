@@ -67,6 +67,7 @@ typedef enum OMX_INDEXEXTTYPE {
     OMX_IndexParamAudioAndroidAlac,               /**< reference: OMX_AUDIO_PARAM_ANDROID_ALACTYPE */
     OMX_IndexParamAudioAndroidTruehd,             /**< reference: OMX_AUDIO_PARAM_ANDROID_TRUEHDTYPE */
     OMX_IndexParamAudioFFmpeg,
+    OMX_IndexParamAudioDolbyAudio, /**< reference: OMX_AUDIO_PARAM_DOLBYAUDIOTYPE */
     OMX_IndexParamAudioProfileQuerySupported,       /**< reference: OMX_AUDIO_PARAM_ANDROID_PROFILETYPE */
 
     /* Image parameters and configurations */

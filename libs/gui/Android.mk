@@ -84,8 +84,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libutils \
 	liblog
 
+LOCAL_C_INCLUDES := \
+	hardware/amlogic/gralloc
 
 LOCAL_MODULE := libgui
+
+ifneq ($(TARGET_DISABLE_SKIP_3D_OSDOMX_LAYER),true)
+    LOCAL_CFLAGS += -DSKIP_3D_OSDOMX_LAYER
+endif
 
 ifeq ($(TARGET_BOARD_PLATFORM), tegra)
 	LOCAL_CFLAGS += -DDONT_USE_FENCE_SYNC

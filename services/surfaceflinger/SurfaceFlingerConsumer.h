@@ -63,6 +63,15 @@ public:
             bool* autoRefresh, bool* queuedBuffer,
             uint64_t maxFrameNumber = 0);
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+    status_t updateAndReleaseNoTextureBuffer(
+            BufferRejecter* rejecter,
+            const DispSync& dispSync,
+            bool* autoRefresh,
+            bool* queuedBuffer,
+            uint64_t maxFrameNumber = 0);
+#endif
+
     // See GLConsumer::bindTextureImageLocked().
     status_t bindTextureImage();
 

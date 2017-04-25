@@ -227,6 +227,10 @@ public:
     virtual bool skip3DOrNot(const BufferItem& item);
 #endif
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+    virtual bool dropOmxFrame(status_t &updateResult);
+#endif
+
 protected:
     /*
      * onDraw - draws the surface.
@@ -627,6 +631,16 @@ private:
     bool mUpdateTexImageFailed; // This is only modified from the main thread
 
     bool mAutoRefresh;
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+    int32_t mOmxVideoHandle;
+    bool mOmxOverlayLayer;
+
+    // thread-safe
+    volatile int32_t mOmxFrameCount;
+    mutable Mutex mOmxFrameCountLock;
+#endif
+
     bool mFreezePositionUpdates;
 };
 

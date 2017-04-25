@@ -49,6 +49,10 @@
 
 #include "DisplayHardware/HWComposer.h"
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+#include "OmxUtil.h"
+#endif
+
 #include "RenderEngine/RenderEngine.h"
 
 //amlogic extenstion
@@ -108,6 +112,12 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mLastFrameNumberReceived(0),
         mUpdateTexImageFailed(false),
         mAutoRefresh(false),
+#ifdef REDUCE_VIDEO_WORKLOAD
+        mOmxVideoHandle(0),
+        mOmxOverlayLayer(false),
+        mOmxFrameCount(0),
+        mOmxFrameCountLock(),
+#endif
         mFreezePositionUpdates(false)
 {
 #ifdef USE_HWC2
@@ -197,6 +207,12 @@ Layer::~Layer() {
     }
     mFlinger->deleteTextureAsync(mTextureName);
     mFrameTracker.logAndResetStats(mName);
+#ifdef REDUCE_VIDEO_WORKLOAD
+    if (mOmxVideoHandle != 0) {
+        closeamvideo();
+        mOmxVideoHandle  = 0;
+    }
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +233,142 @@ void Layer::onLayerDisplayed(const sp<const DisplayDevice>& /* hw */,
         layer->onDisplayed();
         mSurfaceFlingerConsumer->setReleaseFence(layer->getAndResetReleaseFence());
     }
+}
+#endif
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+bool Layer::dropOmxFrame(status_t &updateResult) {
+    // If the head buffer's acquire fence hasn't signaled yet, return and
+    // try again later
+    if (!headFenceHasSignaled()) {
+        updateResult = BufferQueue::PRESENT_LATER;
+        return false;
+    }
+
+    struct Reject : public SurfaceFlingerConsumer::BufferRejecter {
+        Layer::State& front;
+        Layer::State& current;
+        bool stickyTransformSet;
+        const char* name;
+        int32_t overrideScalingMode;
+        bool& freezePositionUpdates;
+
+        Reject(Layer::State& front, Layer::State& current,
+                bool stickySet,
+                const char* name,
+                int32_t overrideScalingMode,
+                bool& freezePositionUpdates)
+            : front(front), current(current),
+              stickyTransformSet(stickySet),
+              name(name),
+              overrideScalingMode(overrideScalingMode),
+              freezePositionUpdates(freezePositionUpdates) {
+        }
+
+        virtual bool reject(const sp<GraphicBuffer>& buf,
+                const BufferItem& item) {
+            if (buf == NULL) {
+                return false;
+            }
+
+            uint32_t bufWidth  = buf->getWidth();
+            uint32_t bufHeight = buf->getHeight();
+
+            // check that we received a buffer of the right size
+            // (Take the buffer's orientation into account)
+            if (item.mTransform & Transform::ROT_90) {
+                swap(bufWidth, bufHeight);
+            }
+
+            int actualScalingMode = overrideScalingMode >= 0 ?
+                    overrideScalingMode : item.mScalingMode;
+            bool isFixedSize = actualScalingMode != NATIVE_WINDOW_SCALING_MODE_FREEZE;
+
+            if (!isFixedSize && !stickyTransformSet) {
+                if (front.active.w != bufWidth ||
+                    front.active.h != bufHeight) {
+                    // reject this buffer
+                    ALOGE("[%s] rejecting buffer: "
+                            "bufWidth=%d, bufHeight=%d, front.active.{w=%d, h=%d}",
+                            name, bufWidth, bufHeight, front.active.w, front.active.h);
+                    return true;
+                }
+            }
+
+            freezePositionUpdates = false;
+
+            return false;
+        }
+    };
+
+    Reject r(mDrawingState, getCurrentState(), getProducerStickyTransform() != 0,
+        mName.string(), mOverrideScalingMode, mFreezePositionUpdates);
+
+    // This boolean is used to make sure that SurfaceFlinger's shadow copy
+    // of the buffer queue isn't modified when the buffer queue is returning
+    // BufferItem's that weren't actually queued. This can happen in shared
+    // buffer mode.
+    bool queuedBuffer = false;
+    updateResult =
+        mSurfaceFlingerConsumer->updateAndReleaseNoTextureBuffer(&r,
+                mFlinger->mPrimaryDispSync, &mAutoRefresh, &queuedBuffer,
+                mLastFrameNumberReceived);
+    if (updateResult == BufferQueue::PRESENT_LATER) {
+        // Producer doesn't want buffer to be displayed yet.  Signal a
+        // layer update so we check again at the next opportunity.
+        return false;
+    } else if (updateResult == SurfaceFlingerConsumer::BUFFER_REJECTED) {
+        // If the buffer has been rejected, remove it from the shadow queue
+        // and return early
+        if (queuedBuffer) {
+            Mutex::Autolock lock(mQueueItemLock);
+            mQueueItems.removeAt(0);
+            android_atomic_dec(&mQueuedFrames);
+        }
+        return true;
+    } else if (updateResult != NO_ERROR || mUpdateTexImageFailed) {
+        // This can occur if something goes wrong when trying to create the
+        // EGLImage for this buffer. If this happens, the buffer has already
+        // been released, so we need to clean up the queue and bug out
+        // early.
+        if (queuedBuffer) {
+            Mutex::Autolock lock(mQueueItemLock);
+            mQueueItems.clear();
+            android_atomic_and(0, &mQueuedFrames);
+        }
+
+        // Once we have hit this state, the shadow queue may no longer
+        // correctly reflect the incoming BufferQueue's contents, so even if
+        // updateTexImage starts working, the only safe course of action is
+        // to continue to ignore updates.
+        mUpdateTexImageFailed = true;
+        return true;
+    }
+
+    if (queuedBuffer) {
+        // Autolock scope
+        auto currentFrameNumber = mSurfaceFlingerConsumer->getFrameNumber();
+
+        Mutex::Autolock lock(mQueueItemLock);
+
+        // Remove any stale buffers that have been dropped during
+        // updateTexImage
+        while (mQueueItems[0].mFrameNumber != currentFrameNumber) {
+            mQueueItems.removeAt(0);
+            android_atomic_dec(&mQueuedFrames);
+        }
+
+        mQueueItems.removeAt(0);
+    }
+
+    // Decrement the queued-frames count.  Signal another event if we
+    // have more frames pending.
+    if ((queuedBuffer && android_atomic_dec(&mQueuedFrames) > 1)
+            || mAutoRefresh) {
+        return false;
+    }
+
+    return true;
 }
 #endif
 
@@ -263,6 +415,59 @@ void Layer::onFrameAvailable(const BufferItem& item) {
         mSkip3D = skip3DOrNot(item);
 #endif
     }
+#ifdef REDUCE_VIDEO_WORKLOAD
+    const sp<GraphicBuffer>& activeBuffer(item.mGraphicBuffer);
+    uint32_t usage = 0;
+    if (activeBuffer != 0) {
+        usage = activeBuffer->getUsage();
+    }
+    if ((usage & GRALLOC_USAGE_AML_OMX_OVERLAY)
+        && (usage & GRALLOC_USAGE_AML_VIDEO_OVERLAY)) {
+        void* vaddr = 0;
+        activeBuffer->lock(usage | GRALLOC_USAGE_SW_READ_MASK, &vaddr);
+        // ALOGE("Stark: AML_VIDEO_OVERLAY come in, vaddr: %p", vaddr);
+        set_omx_pts((char*)vaddr, &mOmxVideoHandle);
+        activeBuffer->unlock();
+        mOmxOverlayLayer = true;
+        {
+            Mutex::Autolock lock(mOmxFrameCountLock);
+            if (mOmxFrameCount <= 10) android_atomic_inc(&mOmxFrameCount);
+        }
+
+        // this layer do not need update
+        if (mOmxFrameCount > 10) {
+            status_t updateResult;
+            if (mQueuedFrames > 0) {
+                do {
+                    updateResult = 0;
+                    if (dropOmxFrame(updateResult)) return;
+                    else if (updateResult == BufferQueue::PRESENT_LATER) {
+                        struct timespec spec;
+                        nsecs_t nextRefreshTime = mFlinger->mPrimaryDispSync.computeNextRefresh(0);
+                        spec.tv_sec  = nextRefreshTime / 1000000000;
+                        spec.tv_nsec = nextRefreshTime % 1000000000;
+                        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &spec, NULL);
+                    } else {
+                        Mutex::Autolock lock(mOmxFrameCountLock);
+                        android_atomic_and(0, &mOmxFrameCount);
+                    }
+                } while (updateResult == BufferQueue::PRESENT_LATER);
+            } else {
+                ALOGE("this should not happend, mQueuedFrames: %d!", mQueuedFrames);
+                return;
+            }
+        }
+    } else {
+        mOmxOverlayLayer = false;
+        Mutex::Autolock lock(mOmxFrameCountLock);
+        android_atomic_and(0, &mOmxFrameCount);
+    }
+
+    if (!mOmxOverlayLayer && mOmxVideoHandle != 0) {
+        closeamvideo();
+        mOmxVideoHandle  = 0;
+    }
+#endif
 
     mFlinger->signalLayerUpdate();
 }
@@ -2002,6 +2207,13 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
 
     Region outDirtyRegion;
     if (mQueuedFrames > 0 || mAutoRefresh) {
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+        // if this layer is omx layer overlay, we return directly
+        if (mOmxOverlayLayer && mOmxFrameCount > 10) {
+            return outDirtyRegion;
+        }
+#endif
 
         // if we've already called updateTexImage() without going through
         // a composition step, we have to skip this layer at this point

@@ -72,6 +72,10 @@ ifneq ($(TARGET_DISABLE_SKIP_3D_OSDOMX_LAYER),true)
     LOCAL_CFLAGS += -DSKIP_3D_OSDOMX_LAYER
 endif
 
+ifneq ($(TARGET_DISABLE_REDUCE_VIDEO_WORKLOAD),true)
+LOCAL_CFLAGS += -DREDUCE_VIDEO_WORKLOAD
+endif
+
 ifeq ($(TARGET_FORCE_HWC_FOR_VIRTUAL_DISPLAYS),true)
     LOCAL_CFLAGS += -DFORCE_HWC_COPY_FOR_VIRTUAL_DISPLAYS
 endif
@@ -146,6 +150,11 @@ LOCAL_SHARED_LIBRARIES := \
     libgui \
     libpowermanager \
     libvulkan
+
+LOCAL_STATIC_LIBRARIES += libomxutil
+OMX_UTIL_DIR := hardware/amlogic/hwcomposer/tvp
+LOCAL_C_INCLUDES += \
+    $(OMX_UTIL_DIR)
 
 LOCAL_MODULE := libsurfaceflinger
 

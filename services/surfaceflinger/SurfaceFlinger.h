@@ -83,8 +83,12 @@ enum {
     eTransactionNeeded        = 0x01,
     eTraversalNeeded          = 0x02,
     eDisplayTransactionNeeded = 0x04,
-    ePrimaryHotplugTransction = 0x10,
+#ifndef USE_AML_HW_ACTIVE_MODE
+    eTransactionMask          = 0x07
+#else
+    ePrimaryHotplugTranscation= 0x10,
     eTransactionMask          = 0x1f
+#endif
 };
 
 enum {

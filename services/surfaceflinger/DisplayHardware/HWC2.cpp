@@ -257,10 +257,13 @@ void Device::registerVsyncCallback(VsyncCallback vsync)
 void Device::callHotplug(std::shared_ptr<Display> display, Connection connected)
 {
     if (connected == Connection::Connected) {
-        // TODO: ???
-        display->loadConfigs();
-        if (!display->isConnected()) {
-            //display->loadConfigs();
+        if (!display->isConnected()
+#ifdef USE_AML_HW_ACTIVE_MODE
+            // Primary display need to reload configs.
+            || display->getId() == HWC_DISPLAY_PRIMARY)
+#endif
+        {
+            display->loadConfigs();
             display->setConnected(true);
         }
     } else {
@@ -610,10 +613,38 @@ Error Display::getColorModes(std::vector<android_color_mode_t>* outModes) const
 
 std::vector<std::shared_ptr<const Display::Config>> Display::getConfigs() const
 {
+#ifdef USE_AML_HW_ACTIVE_MODE
+    ALOGV("[%" PRIu64 "] getConfigs", mId);
+    hwc2_config_t activeConfigId = 0;
+    int32_t intError = mDevice.mGetActiveConfig(mDevice.mHwcDevice, mId,
+            &activeConfigId);
+    auto error = static_cast<Error>(intError);
+    if (error != Error::None) {
+        ALOGE("[%" PRIu64 "] mGetActiveConfig error", mId);
+    }
+    if (mConfigs.count(activeConfigId) == 0) {
+        ALOGE("[%" PRIu64 "] getActiveConfig returned unknown config %u", mId,
+                activeConfigId);
+    }
+#endif
+
     std::vector<std::shared_ptr<const Config>> configs;
     for (const auto& element : mConfigs) {
+#ifdef USE_AML_HW_ACTIVE_MODE
+        // Skip active configid, need to add to the front of configs.
+        if (element.first == activeConfigId) {
+            continue;
+        }
+#endif
         configs.emplace_back(element.second);
     }
+
+#ifdef USE_AML_HW_ACTIVE_MODE
+    if (mConfigs.count(activeConfigId) != 0) {
+        // Add active config to the front of configs.
+        configs.emplace(configs.begin(), mConfigs.at(activeConfigId));
+    }
+#endif
     return configs;
 }
 
@@ -921,6 +952,13 @@ void Display::loadConfigs()
                 to_string(error).c_str(), intError);
         return;
     }
+
+#ifdef USE_AML_HW_ACTIVE_MODE
+    // Primary display need update configs when hotplug happens.
+    if (mId == HWC_DISPLAY_PRIMARY) {
+        mConfigs.clear();
+    }
+#endif
 
     for (auto configId : configIds) {
         loadConfig(configId);

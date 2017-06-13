@@ -88,6 +88,13 @@ ifeq ($(TARGET_RUNNING_WITHOUT_SYNC_FRAMEWORK),true)
     LOCAL_CFLAGS += -DRUNNING_WITHOUT_SYNC_FRAMEWORK
 endif
 
+# The following is a workaround for AMLogic's HWC for Needle/Stark, and allows
+# GPU compositioning of 4k surfaces to take place. Without it GPU compositions
+# of 4k surfaces display the top left 1080p sub-rect of the surface, rather than
+# downscaling to the SF composition buffer size.
+# use hardware scale on gui layer.
+LOCAL_CFLAGS += -DUSE_AML_HW_POST_SCALE
+
 # The following two BoardConfig variables define (respectively):
 #
 #   - The phase offset between hardware vsync and when apps are woken up by the
@@ -134,6 +141,8 @@ endif
 
 LOCAL_CFLAGS += -fvisibility=hidden -Werror=format
 LOCAL_CFLAGS += -std=c++14
+
+LOCAL_CFLAGS += -DUSE_AML_HW_ACTIVE_MODE
 
 LOCAL_STATIC_LIBRARIES := libvkjson
 LOCAL_SHARED_LIBRARIES := \

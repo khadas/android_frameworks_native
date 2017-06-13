@@ -193,11 +193,19 @@ bool DisplayDevice::isValid() const {
 }
 
 int DisplayDevice::getWidth() const {
+#ifdef USE_AML_HW_POST_SCALE
+    return mFrame.getWidth();
+#else
     return mDisplayWidth;
+#endif
 }
 
 int DisplayDevice::getHeight() const {
+#ifdef USE_AML_HW_POST_SCALE
+    return mFrame.getHeight();
+#else
     return mDisplayHeight;
+#endif
 }
 
 #ifndef USE_HWC2
@@ -361,9 +369,18 @@ EGLBoolean DisplayDevice::makeCurrent(EGLDisplay dpy, EGLContext ctx) const {
 void DisplayDevice::setViewportAndProjection() const {
     size_t w = mDisplayWidth;
     size_t h = mDisplayHeight;
+#ifdef USE_AML_HW_POST_SCALE
+    float frameW = mFrame.width();
+    float frameH = mFrame.height();
+    Rect sourceCrop(0, 0, frameW, frameH);
+
+    mFlinger->getRenderEngine().setViewportAndProjection(w, h, sourceCrop, frameH,
+        false, Transform::ROT_0);
+#else
     Rect sourceCrop(0, 0, w, h);
     mFlinger->getRenderEngine().setViewportAndProjection(w, h, sourceCrop, h,
         false, Transform::ROT_0);
+#endif
 }
 
 const sp<Fence>& DisplayDevice::getClientTargetAcquireFence() const {

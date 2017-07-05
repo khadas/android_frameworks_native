@@ -1170,7 +1170,9 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         // is probably going to have something visibly wrong.
     }
 
-    bool blackOutLayer = isProtected() || (isSecure() && !hw->isSecure());
+    static int overlaybit = (0x04000000 | 0x01000000); //GRALLOC_USAGE_AML_OMX_OVERLAY
+    bool blackOutLayer = isProtected() || (isSecure() && !hw->isSecure())
+                                            || (mActiveBuffer->getUsage() & overlaybit);
 
     RenderEngine& engine(mFlinger->getRenderEngine());
 

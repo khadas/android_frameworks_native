@@ -220,6 +220,10 @@ private:
     EGLSurface      mSurface;
     int             mDisplayWidth;
     int             mDisplayHeight;
+#ifdef USE_AML_HW_POST_SCALE
+    int             mDisplayRealWidth;
+    int             mDisplayRealHeight;
+#endif
 #ifndef USE_HWC2
     PixelFormat     mFormat;
 #endif

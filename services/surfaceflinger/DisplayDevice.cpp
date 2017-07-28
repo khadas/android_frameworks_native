@@ -124,6 +124,11 @@ DisplayDevice::DisplayDevice(
     eglQuerySurface(display, eglSurface, EGL_WIDTH,  &mDisplayWidth);
     eglQuerySurface(display, eglSurface, EGL_HEIGHT, &mDisplayHeight);
 
+#ifdef USE_AML_HW_POST_SCALE
+    mDisplayRealWidth = mDisplayWidth;
+    mDisplayRealHeight = mDisplayHeight;
+#endif
+
     // Make sure that composition can never be stalled by a virtual display
     // consumer that isn't processing buffers fast enough. We have to do this
     // in two places:
@@ -194,7 +199,7 @@ bool DisplayDevice::isValid() const {
 
 int DisplayDevice::getWidth() const {
 #ifdef USE_AML_HW_POST_SCALE
-    return mFrame.getWidth();
+    return mDisplayRealWidth;
 #else
     return mDisplayWidth;
 #endif
@@ -202,7 +207,7 @@ int DisplayDevice::getWidth() const {
 
 int DisplayDevice::getHeight() const {
 #ifdef USE_AML_HW_POST_SCALE
-    return mFrame.getHeight();
+    return mDisplayRealHeight;
 #else
     return mDisplayHeight;
 #endif
@@ -370,8 +375,8 @@ void DisplayDevice::setViewportAndProjection() const {
     size_t w = mDisplayWidth;
     size_t h = mDisplayHeight;
 #ifdef USE_AML_HW_POST_SCALE
-    float frameW = mFrame.width();
-    float frameH = mFrame.height();
+    float frameW = mDisplayRealWidth;
+    float frameH = mDisplayRealHeight;
     Rect sourceCrop(0, 0, frameW, frameH);
 
     mFlinger->getRenderEngine().setViewportAndProjection(w, h, sourceCrop, frameH,
@@ -509,6 +514,11 @@ void DisplayDevice::setDisplaySize(const int newWidth, const int newHeight) {
     eglQuerySurface(mDisplay, mSurface, EGL_WIDTH,  &mDisplayWidth);
     eglQuerySurface(mDisplay, mSurface, EGL_HEIGHT, &mDisplayHeight);
 
+#ifdef USE_AML_HW_POST_SCALE
+    mDisplayRealWidth = newWidth;
+    mDisplayRealHeight = newHeight;
+#endif
+
     LOG_FATAL_IF(mDisplayWidth != newWidth,
                 "Unable to set new width to %d", newWidth);
     LOG_FATAL_IF(mDisplayHeight != newHeight,
@@ -520,8 +530,13 @@ void DisplayDevice::setProjection(int orientation,
     Rect viewport(newViewport);
     Rect frame(newFrame);
 
+#ifdef USE_AML_HW_POST_SCALE
+    const int w = getWidth();
+    const int h = getHeight();
+#else
     const int w = mDisplayWidth;
     const int h = mDisplayHeight;
+#endif
 
     Transform R;
     DisplayDevice::orientationToTransfrom(orientation, w, h, &R);

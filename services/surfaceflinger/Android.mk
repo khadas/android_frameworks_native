@@ -88,7 +88,7 @@ ifeq ($(TARGET_RUNNING_WITHOUT_SYNC_FRAMEWORK),true)
     LOCAL_CFLAGS += -DRUNNING_WITHOUT_SYNC_FRAMEWORK
 endif
 
-# The following is a workaround for AMLogic's HWC for Needle/Stark, and allows
+# The following is a workaround for AMLogic's HWC , and allows
 # GPU compositioning of 4k surfaces to take place. Without it GPU compositions
 # of 4k surfaces display the top left 1080p sub-rect of the surface, rather than
 # downscaling to the SF composition buffer size.

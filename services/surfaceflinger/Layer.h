@@ -59,6 +59,9 @@ class Colorizer;
 class DisplayDevice;
 class GraphicBuffer;
 class SurfaceFlinger;
+#ifdef REDUCE_VIDEO_WORKLOAD
+class HwcSidebandAgent;
+#endif
 
 // ---------------------------------------------------------------------------
 
@@ -229,6 +232,9 @@ public:
 
 #ifdef REDUCE_VIDEO_WORKLOAD
     virtual bool dropOmxFrame(status_t &updateResult);
+    bool getQueuedBuffer(sp<GraphicBuffer>& buffer);
+    void waitNextVsync();
+    void returnGpuMode();
 #endif
 
 protected:
@@ -633,8 +639,8 @@ private:
     bool mAutoRefresh;
 
 #ifdef REDUCE_VIDEO_WORKLOAD
-    int32_t mOmxVideoHandle;
     bool mOmxOverlayLayer;
+    sp<HwcSidebandAgent> mHwcAgent;
 
     // thread-safe
     volatile int32_t mOmxFrameCount;

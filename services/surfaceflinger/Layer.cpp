@@ -69,6 +69,189 @@
 namespace android {
 
 // ---------------------------------------------------------------------------
+#ifdef REDUCE_VIDEO_WORKLOAD
+#define OMX_NOSIDEBAND_NUM (10)
+class  HwcSidebandAgent : public Thread{
+public:
+    HwcSidebandAgent(Layer* layer);
+    ~HwcSidebandAgent();
+
+public:
+    void startConsume();
+    bool isConsuming();
+
+    bool preProcess(sp<GraphicBuffer> buffer);
+    void exit();
+
+    bool isOmxVideoFrame(sp<GraphicBuffer> activeBuffer);
+    void setOmxPTS(sp<GraphicBuffer> activeBuffer);
+
+    void dump(String8& result);
+
+protected:
+    void notify();
+
+private:
+    bool    threadLoop();
+
+private:
+    enum WorkMode {
+        STANDBY_MODE = 0,
+        RUNNING_MODE,
+        EXIT_MODE
+    };
+
+    Layer* mClientLayer;
+    mutable Mutex mStatLock;
+    Condition mStateCondition;
+    WorkMode mMode;
+    int32_t mOmxVideoHandle;
+    char mName[64];
+};
+
+HwcSidebandAgent::HwcSidebandAgent(Layer* layer) {
+    mClientLayer = layer;
+    mMode = STANDBY_MODE;
+    mOmxVideoHandle = 0;
+    sprintf(mName, "HwcAgt-%p", mClientLayer);
+}
+
+HwcSidebandAgent::~HwcSidebandAgent() {
+    if (mOmxVideoHandle != 0) {
+        closeamvideo();
+        mOmxVideoHandle  = 0;
+    }
+}
+
+void HwcSidebandAgent::startConsume() {
+    Mutex::Autolock lock(mStatLock);
+    mMode = RUNNING_MODE;
+
+    if (!isRunning()) {
+        run(mName, PRIORITY_URGENT_DISPLAY + PRIORITY_MORE_FAVORABLE);
+    }
+
+    mStateCondition.broadcast();
+}
+
+bool HwcSidebandAgent::isConsuming() {
+    Mutex::Autolock lock(mStatLock);
+    if (mMode == RUNNING_MODE)
+        return true;
+    return false;
+}
+
+void HwcSidebandAgent::exit() {
+    {
+        Mutex::Autolock lock(mStatLock);
+        mMode = EXIT_MODE;
+        mStateCondition.broadcast();
+    }
+    requestExitAndWait();
+}
+
+void HwcSidebandAgent::notify() {
+    Mutex::Autolock lock(mStatLock);
+    mStateCondition.broadcast();
+}
+
+bool HwcSidebandAgent::preProcess(sp<GraphicBuffer> buffer) {
+    if (isOmxVideoFrame(buffer)) {
+       setOmxPTS(buffer);
+    }
+
+    if (isConsuming()) {
+        notify();
+        return true;
+    }
+
+    return false;
+}
+
+bool HwcSidebandAgent::isOmxVideoFrame(sp<GraphicBuffer> activeBuffer) {
+    bool rtn = false;
+    if ((activeBuffer != 0) && (activeBuffer->getUsage() & GRALLOC_USAGE_AML_OMX_OVERLAY) &&
+            (activeBuffer->getUsage() & GRALLOC_USAGE_AML_VIDEO_OVERLAY)) {
+        rtn = true;
+    }
+
+    //ALOGE("preProcess buf: overlay %d, width %d, height %d", rtn,
+    //            activeBuffer.get() ? activeBuffer->getWidth() : 0,
+    //            activeBuffer.get() ?activeBuffer->getHeight() : 0);
+    return rtn;
+}
+
+void HwcSidebandAgent::setOmxPTS(sp<GraphicBuffer> activeBuffer) {
+    if (activeBuffer != NULL) {
+        void* vaddr = 0;
+        activeBuffer->lock(activeBuffer->getUsage() | GRALLOC_USAGE_SW_READ_MASK, &vaddr);
+        //ALOGD("AML_VIDEO_OVERLAY come in, vaddr: %p", vaddr);
+        set_omx_pts((char*)vaddr, &mOmxVideoHandle);
+        activeBuffer->unlock();
+    }
+}
+
+void HwcSidebandAgent::dump(String8& result) {
+    Mutex::Autolock lock(mStatLock);
+    result.appendFormat("HwcSidebandAgent (%s) Working mode: %d. \n", mName, mMode);
+}
+
+bool HwcSidebandAgent::threadLoop() {
+    {
+        Mutex::Autolock lock(mStatLock);
+        if (mMode == EXIT_MODE) {
+            return false;
+        }
+
+        if (mMode == STANDBY_MODE) {
+            mStateCondition.waitRelative(mStatLock, ms2ns(200));
+            return true;
+        }
+    }
+
+    //consuming buffer.
+#ifdef USE_HWC2
+    mClientLayer->releasePendingBuffer();
+#endif
+    bool bExitSidebandMode = false;
+    sp<GraphicBuffer> buffer;
+    if (mClientLayer->getQueuedBuffer(buffer)) {
+        if (!buffer.get()) {
+            ALOGD("Layer (%s) meet a osd layer.", mName);
+            bExitSidebandMode = true;
+        } else if (isOmxVideoFrame(buffer)) {
+            //consume buffer.
+            status_t updateResult = 0;
+            if (mClientLayer->dropOmxFrame(updateResult)) {
+                ALOGD("Layer (%s) hwcAgent consume buffer ok.", mName);
+            } else if (updateResult == BufferQueue::PRESENT_LATER) {
+                ALOGD("Layer (%s) BufferQueue Present Later.", mName);
+                mClientLayer->waitNextVsync();
+            } else {
+                ALOGD("Layer (%s) Meet buffer reject, exit sideband mode.", mName);
+                bExitSidebandMode = true;
+            }
+        } else {
+            ALOGD("Layer (%s) Meet no omx video frame, exit sideband mode.", mName);
+            bExitSidebandMode = true;
+        }
+
+        if (bExitSidebandMode) {
+            //exit sideband mode.
+            Mutex::Autolock lock(mStatLock);
+            ALOGD("Layer (%s) Exit hwcagent consume mode.", mName);
+            mMode = STANDBY_MODE;
+            mClientLayer->returnGpuMode();
+        }
+    } else {
+        Mutex::Autolock lock(mStatLock);
+        ALOGD("Layer (%s) No valid buffer now, waiting for new buffer.", mName);
+        mStateCondition.waitRelative(mStatLock, ms2ns(200));
+    }
+
+    return true;
+}
+#endif
 
 int32_t Layer::sSequence = 1;
 
@@ -113,7 +296,6 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mUpdateTexImageFailed(false),
         mAutoRefresh(false),
 #ifdef REDUCE_VIDEO_WORKLOAD
-        mOmxVideoHandle(0),
         mOmxOverlayLayer(false),
         mOmxFrameCount(0),
         mOmxFrameCountLock(),
@@ -191,10 +373,19 @@ void Layer::onFirstRef() {
 
     const sp<const DisplayDevice> hw(mFlinger->getDefaultDisplayDevice());
     updateTransformHint(hw);
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+    mHwcAgent = new HwcSidebandAgent(this);
+#endif
 }
 
 Layer::~Layer() {
-  sp<Client> c(mClientRef.promote());
+#ifdef REDUCE_VIDEO_WORKLOAD
+    mHwcAgent->exit();
+    mHwcAgent.clear();
+#endif
+
+    sp<Client> c(mClientRef.promote());
     if (c != 0) {
         c->detachLayer(this);
     }
@@ -207,12 +398,6 @@ Layer::~Layer() {
     }
     mFlinger->deleteTextureAsync(mTextureName);
     mFrameTracker.logAndResetStats(mName);
-#ifdef REDUCE_VIDEO_WORKLOAD
-    if (mOmxVideoHandle != 0) {
-        closeamvideo();
-        mOmxVideoHandle  = 0;
-    }
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -370,6 +555,28 @@ bool Layer::dropOmxFrame(status_t &updateResult) {
 
     return true;
 }
+
+bool Layer::getQueuedBuffer(sp<GraphicBuffer>& buffer) {
+    Mutex::Autolock lock(mQueueItemLock);
+    if (mQueuedFrames > 0) {
+        buffer = mQueueItems[0].mGraphicBuffer;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void Layer::waitNextVsync() {
+    struct timespec spec;
+    nsecs_t nextRefreshTime = mFlinger->mPrimaryDispSync.computeNextRefresh(0);
+    spec.tv_sec  = nextRefreshTime / 1000000000;
+    spec.tv_nsec = nextRefreshTime % 1000000000;
+    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &spec, NULL);
+}
+
+void Layer::returnGpuMode() {
+    mFlinger->signalLayerUpdate();
+}
 #endif
 
 #ifdef SKIP_3D_OSDOMX_LAYER
@@ -385,87 +592,38 @@ bool Layer::skip3DOrNot(const BufferItem& item) {
 #endif
 
 void Layer::onFrameAvailable(const BufferItem& item) {
-    // Add this buffer from our internal queue tracker
-    { // Autolock scope
-        Mutex::Autolock lock(mQueueItemLock);
+    Mutex::Autolock lock(mQueueItemLock);
 
-        // Reset the frame number tracker when we receive the first buffer after
-        // a frame number reset
-        if (item.mFrameNumber == 1) {
-            mLastFrameNumberReceived = 0;
+    // Reset the frame number tracker when we receive the first buffer after
+    // a frame number reset
+    if (item.mFrameNumber == 1) {
+        mLastFrameNumberReceived = 0;
+    }
+
+    // Ensure that callbacks are handled in order
+    while (item.mFrameNumber != mLastFrameNumberReceived + 1) {
+        status_t result = mQueueItemCondition.waitRelative(mQueueItemLock,
+                ms2ns(500));
+        if (result != NO_ERROR) {
+            ALOGE("[%s] Timed out waiting on callback", mName.string());
         }
+    }
 
-        // Ensure that callbacks are handled in order
-        while (item.mFrameNumber != mLastFrameNumberReceived + 1) {
-            status_t result = mQueueItemCondition.waitRelative(mQueueItemLock,
-                    ms2ns(500));
-            if (result != NO_ERROR) {
-                ALOGE("[%s] Timed out waiting on callback", mName.string());
-            }
-        }
+    mQueueItems.push_back(item);
+    android_atomic_inc(&mQueuedFrames);
 
-        mQueueItems.push_back(item);
-        android_atomic_inc(&mQueuedFrames);
-
-        // Wake up any pending callbacks
-        mLastFrameNumberReceived = item.mFrameNumber;
-        mQueueItemCondition.broadcast();
+    // Wake up any pending callbacks
+    mLastFrameNumberReceived = item.mFrameNumber;
+    mQueueItemCondition.broadcast();
 
 #ifdef SKIP_3D_OSDOMX_LAYER
-        mSkip3D = skip3DOrNot(item);
+    mSkip3D = skip3DOrNot(item);
 #endif
-    }
+
 #ifdef REDUCE_VIDEO_WORKLOAD
-    const sp<GraphicBuffer>& activeBuffer(item.mGraphicBuffer);
-    uint32_t usage = 0;
-    if (activeBuffer != 0) {
-        usage = activeBuffer->getUsage();
-    }
-    if ((usage & GRALLOC_USAGE_AML_OMX_OVERLAY)
-        && (usage & GRALLOC_USAGE_AML_VIDEO_OVERLAY)) {
-        void* vaddr = 0;
-        activeBuffer->lock(usage | GRALLOC_USAGE_SW_READ_MASK, &vaddr);
-        // ALOGE("Stark: AML_VIDEO_OVERLAY come in, vaddr: %p", vaddr);
-        set_omx_pts((char*)vaddr, &mOmxVideoHandle);
-        activeBuffer->unlock();
-        mOmxOverlayLayer = true;
-        {
-            Mutex::Autolock lock(mOmxFrameCountLock);
-            if (mOmxFrameCount <= 10) android_atomic_inc(&mOmxFrameCount);
-        }
-
-        // this layer do not need update
-        if (mOmxFrameCount > 10) {
-            status_t updateResult;
-            if (mQueuedFrames > 0) {
-                do {
-                    updateResult = 0;
-                    if (dropOmxFrame(updateResult)) return;
-                    else if (updateResult == BufferQueue::PRESENT_LATER) {
-                        struct timespec spec;
-                        nsecs_t nextRefreshTime = mFlinger->mPrimaryDispSync.computeNextRefresh(0);
-                        spec.tv_sec  = nextRefreshTime / 1000000000;
-                        spec.tv_nsec = nextRefreshTime % 1000000000;
-                        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &spec, NULL);
-                    } else {
-                        Mutex::Autolock lock(mOmxFrameCountLock);
-                        android_atomic_and(0, &mOmxFrameCount);
-                    }
-                } while (updateResult == BufferQueue::PRESENT_LATER);
-            } else {
-                ALOGE("this should not happend, mQueuedFrames: %d!", mQueuedFrames);
-                return;
-            }
-        }
-    } else {
-        mOmxOverlayLayer = false;
-        Mutex::Autolock lock(mOmxFrameCountLock);
-        android_atomic_and(0, &mOmxFrameCount);
-    }
-
-    if (!mOmxOverlayLayer && mOmxVideoHandle != 0) {
-        closeamvideo();
-        mOmxVideoHandle  = 0;
+    const sp<GraphicBuffer>& buf(item.mGraphicBuffer);
+    if (mHwcAgent->preProcess(buf)) {
+        return;
     }
 #endif
 
@@ -2210,11 +2368,16 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
 
     Region outDirtyRegion;
     if (mQueuedFrames > 0 || mAutoRefresh) {
-
 #ifdef REDUCE_VIDEO_WORKLOAD
         // if this layer is omx layer overlay, we return directly
-        if (mOmxOverlayLayer && mOmxFrameCount > 10) {
-            return outDirtyRegion;
+        if (mOmxOverlayLayer) {
+            if (mHwcAgent->isConsuming()) {
+                return outDirtyRegion;
+            } else {//when HwcAgent exit consume, will run to here.
+               Mutex::Autolock lock(mOmxFrameCountLock);
+               android_atomic_and(0, &mOmxFrameCount);
+               mOmxOverlayLayer = false;
+            }
         }
 #endif
 
@@ -2455,9 +2618,19 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
                 android_atomic_dec(&mQueuedFrames);
             }
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+            if (mHwcAgent->isOmxVideoFrame(mQueueItems[0].mGraphicBuffer)) {
+                Mutex::Autolock lock(mOmxFrameCountLock);
+                android_atomic_inc(&mOmxFrameCount);
+                if (mOmxFrameCount >= OMX_NOSIDEBAND_NUM) {
+                    mOmxOverlayLayer = true;
+                    mHwcAgent->startConsume();
+                }
+            }
+#endif
+
             mQueueItems.removeAt(0);
         }
-
 
         // Decrement the queued-frames count.  Signal another event if we
         // have more frames pending.
@@ -2594,6 +2767,12 @@ void Layer::dump(String8& result, Colorizer& colorizer) const
             getTypeId(), this, getName().string());
     colorizer.reset(result);
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+    if (mHwcAgent.get()) {
+        mHwcAgent->dump(result);
+    }
+#endif
+
     s.activeTransparentRegion.dump(result, "transparentRegion");
     visibleRegion.dump(result, "visibleRegion");
     surfaceDamageRegion.dump(result, "surfaceDamageRegion");
@@ -2631,9 +2810,11 @@ void Layer::dump(String8& result, Colorizer& colorizer) const
     result.appendFormat(
             "      "
             "format=%2d, activeBuffer=[%4ux%4u:%4u,%3X],"
-            " queued-frames=%d, mRefreshPending=%d\n",
-            mFormat, w0, h0, s0,f0,
-            mQueuedFrames, mRefreshPending);
+            " queued-frames=%d, mRefreshPending=%d,mOmxOverlayLayer= %d, mOmxFrameCount = %d,\n"
+            "mOverrideScalingMode = %d, mFreezePositionUpdates= %d, stickyTransform=%d\n",
+            mFormat, w0, h0, s0, f0,
+            mQueuedFrames, mRefreshPending, mOmxOverlayLayer, mOmxFrameCount,
+            mOverrideScalingMode, mFreezePositionUpdates, getProducerStickyTransform());
 
     if (mSurfaceFlingerConsumer != 0) {
         mSurfaceFlingerConsumer->dump(result, "            ");

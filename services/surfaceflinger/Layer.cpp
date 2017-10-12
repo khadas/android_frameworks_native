@@ -228,7 +228,7 @@ bool HwcSidebandAgent::threadLoop() {
                 ALOGD("Layer (%s) BufferQueue Present Later.", mName);
                 mClientLayer->waitNextVsync();
             } else {
-                ALOGD("Layer (%s) Meet buffer reject, exit sideband mode.", mName);
+                ALOGD("Layer (%s) Meet text failed, exit sideband mode.", mName);
                 bExitSidebandMode = true;
             }
         } else {
@@ -527,7 +527,7 @@ bool Layer::dropOmxFrame(status_t &updateResult) {
         // updateTexImage starts working, the only safe course of action is
         // to continue to ignore updates.
         mUpdateTexImageFailed = true;
-        return true;
+        return false;
     }
 
     if (queuedBuffer) {
@@ -550,7 +550,7 @@ bool Layer::dropOmxFrame(status_t &updateResult) {
     // have more frames pending.
     if ((queuedBuffer && android_atomic_dec(&mQueuedFrames) > 1)
             || mAutoRefresh) {
-        return false;
+        return true;
     }
 
     return true;

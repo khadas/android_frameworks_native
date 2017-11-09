@@ -438,22 +438,6 @@ Rect Layer::computeBounds(const Region& activeTransparentRegion) const {
     if (!s.crop.isEmpty()) {
         win.intersect(s.crop, &win);
     }
-
-    Rect bounds = win;
-    const auto& p = mDrawingParent.promote();
-    if (p != nullptr) {
-        // Look in computeScreenBounds recursive call for explanation of
-        // why we pass false here.
-        bounds = p->computeScreenBounds(false /* reduceTransparentRegion */);
-    }
-
-    Transform t = getTransform();
-    if (p != nullptr) {
-        win = t.transform(win);
-        win.intersect(bounds, &win);
-        win = t.inverse().transform(win);
-    }
-
     // subtract the transparent region and snap to the bounds
     return reduce(win, activeTransparentRegion);
 }

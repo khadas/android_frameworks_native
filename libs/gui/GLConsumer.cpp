@@ -400,6 +400,56 @@ status_t GLConsumer::releaseBufferLocked(int buf,
     return err;
 }
 
+status_t GLConsumer::updateAndReleaseNoTextureBufferLocked(
+        const BufferItem& item, PendingRelease* pendingRelease)
+{
+    status_t err = NO_ERROR;
+
+    int slot = item.mSlot;
+
+    if (!mAttached) {
+        GLC_LOGE("updateAndRelease: GLConsumer is not attached to an OpenGL "
+                "ES context");
+        releaseBufferLocked(slot, mSlots[slot].mGraphicBuffer,
+                mEglDisplay, EGL_NO_SYNC_KHR);
+        return INVALID_OPERATION;
+    }
+
+    // release old buffer
+    if (mCurrentTexture != BufferQueue::INVALID_BUFFER_SLOT) {
+        if (pendingRelease == nullptr) {
+            status_t status = releaseBufferLocked(
+                    mCurrentTexture, mCurrentTextureImage->graphicBuffer(),
+                    mEglDisplay, mEglSlots[mCurrentTexture].mEglFence);
+            if (status < NO_ERROR) {
+                GLC_LOGE("updateAndRelease: failed to release buffer: %s (%d)",
+                        strerror(-status), status);
+                err = status;
+                // keep going, with error raised [?]
+            }
+        } else {
+            pendingRelease->currentTexture = mCurrentTexture;
+            pendingRelease->graphicBuffer =
+                    mCurrentTextureImage->graphicBuffer();
+            pendingRelease->display = mEglDisplay;
+            pendingRelease->fence = mEglSlots[mCurrentTexture].mEglFence;
+            pendingRelease->isPending = true;
+        }
+    }
+
+    // Update the GLConsumer state.
+    mCurrentTexture = slot;
+    mCurrentTextureImage = mEglSlots[slot].mEglImage;
+    mCurrentCrop = item.mCrop;
+    mCurrentTransform = item.mTransform;
+    mCurrentScalingMode = item.mScalingMode;
+    mCurrentTimestamp = item.mTimestamp;
+    mCurrentFence = item.mFence;
+    mCurrentFrameNumber = item.mFrameNumber;
+
+    return err;
+}
+
 status_t GLConsumer::updateAndReleaseLocked(const BufferItem& item,
         PendingRelease* pendingRelease)
 {

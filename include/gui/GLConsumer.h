@@ -289,6 +289,10 @@ protected:
     status_t updateAndReleaseLocked(const BufferItem& item,
             PendingRelease* pendingRelease = nullptr);
 
+    // This method is added for NoTexture buffer update and release
+        status_t updateAndReleaseNoTextureBufferLocked(
+            const BufferItem& item, PendingRelease* pendingRelease = nullptr);
+
     // Binds mTexName and the current buffer to mTexTarget.  Uses
     // mCurrentTexture if it's set, mCurrentTextureImage if not.  If the
     // bind succeeds, this calls doGLFenceWait.

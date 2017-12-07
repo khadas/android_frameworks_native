@@ -60,6 +60,10 @@ else
         DisplayHardware/HWComposer_hwc1.cpp
 endif
 
+ifneq ($(TARGET_DISABLE_REDUCE_VIDEO_WORKLOAD),true)
+LOCAL_CFLAGS += -DREDUCE_VIDEO_WORKLOAD
+endif
+
 LOCAL_CFLAGS += -fvisibility=hidden -Werror=format
 
 LOCAL_STATIC_LIBRARIES := \
@@ -103,6 +107,10 @@ LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := \
     libhidlbase \
     libhidltransport \
     libhwbinder
+
+LOCAL_STATIC_LIBRARIES += libomxutil
+LOCAL_C_INCLUDES += hardware/amlogic/hwcomposer/tvp \
+                    hardware/amlogic/gralloc
 
 LOCAL_CFLAGS += -Wall -Werror -Wunused -Wunreachable-code
 

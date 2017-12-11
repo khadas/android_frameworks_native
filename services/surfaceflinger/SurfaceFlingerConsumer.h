@@ -64,6 +64,13 @@ public:
             bool* autoRefresh, bool* queuedBuffer,
             uint64_t maxFrameNumber);
 
+    status_t updateAndReleaseNoTextureBuffer(
+            BufferRejecter* rejecter,
+            const DispSync& dispSync,
+            bool* autoRefresh,
+            bool* queuedBuffer,
+            uint64_t maxFrameNumber = 0);
+
     // See GLConsumer::bindTextureImageLocked().
     status_t bindTextureImage();
 

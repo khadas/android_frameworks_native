@@ -60,6 +60,9 @@ class Colorizer;
 class DisplayDevice;
 class GraphicBuffer;
 class SurfaceFlinger;
+#ifdef REDUCE_VIDEO_WORKLOAD
+class HwcSidebandAgent;
+#endif
 
 // ---------------------------------------------------------------------------
 
@@ -298,6 +301,13 @@ public:
      * isFixedSize - true if content has a fixed size
      */
     virtual bool isFixedSize() const;
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+    virtual bool dropOmxFrame(status_t &updateResult);
+    bool getQueuedBuffer(sp<GraphicBuffer>& buffer);
+    void waitNextVsync();
+    void returnGpuMode();
+#endif
 
 protected:
     /*
@@ -803,6 +813,15 @@ private:
 
     wp<Layer> mCurrentParent;
     wp<Layer> mDrawingParent;
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+    bool mOmxOverlayLayer;
+    sp<HwcSidebandAgent> mHwcAgent;
+
+    // thread-safe
+    volatile int32_t mOmxFrameCount;
+    mutable Mutex mOmxFrameCountLock;
+#endif
 };
 
 // ---------------------------------------------------------------------------

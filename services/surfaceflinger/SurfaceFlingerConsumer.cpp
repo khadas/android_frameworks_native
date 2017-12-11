@@ -111,6 +111,72 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
     return err;
 }
 
+status_t SurfaceFlingerConsumer::updateAndReleaseNoTextureBuffer(
+        BufferRejecter* rejecter, const DispSync& dispSync,
+        bool* autoRefresh, bool* queuedBuffer, uint64_t maxFrameNumber)
+{
+    ATRACE_CALL();
+    ALOGV("updateTexImage");
+    Mutex::Autolock lock(mMutex);
+
+    if (mAbandoned) {
+        ALOGE("updateTexImage: GLConsumer is abandoned!");
+        return NO_INIT;
+    }
+
+    BufferItem item;
+
+    // Acquire the next buffer.
+    // In asynchronous mode the list is guaranteed to be one buffer
+    // deep, while in synchronous mode we use the oldest buffer.
+    // Acquire the next buffer.
+    // In asynchronous mode the list is guaranteed to be one buffer
+    // deep, while in synchronous mode we use the oldest buffer.
+    status_t err = GLConsumer::acquireBufferLocked(&item,
+            computeExpectedPresent(dispSync),
+            maxFrameNumber);
+    if (err == NO_ERROR) {
+        mTransformToDisplayInverse = item.mTransformToDisplayInverse;
+        mSurfaceDamage = item.mSurfaceDamage;
+    } else {
+        if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
+            err = NO_ERROR;
+        } else if (err == BufferQueue::PRESENT_LATER) {
+            // return the error, without logging
+        } else {
+            ALOGE("updateTexImage: acquire failed: %s (%d)",
+                strerror(-err), err);
+        }
+        return err;
+    }
+
+    // We call the rejecter here, in case the caller has a reason to
+    // not accept this buffer.  This is used by SurfaceFlinger to
+    // reject buffers which have the wrong size
+    int slot = item.mSlot;
+    if (rejecter && rejecter->reject(mSlots[slot].mGraphicBuffer, item)) {
+        releaseBufferLocked(slot, mSlots[slot].mGraphicBuffer, EGL_NO_SYNC_KHR);
+        return BUFFER_REJECTED;
+    }
+
+    if (autoRefresh) {
+        *autoRefresh = item.mAutoRefresh;
+    }
+
+    if (queuedBuffer) {
+        *queuedBuffer = item.mQueuedBuffer;
+    }
+
+    // Release the previous buffer.
+    err = updateAndReleaseNoTextureBufferLocked(item);
+
+    if (err != NO_ERROR) {
+        return err;
+    }
+
+    return err;
+}
+
 status_t SurfaceFlingerConsumer::bindTextureImage()
 {
     Mutex::Autolock lock(mMutex);

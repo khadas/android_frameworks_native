@@ -77,6 +77,7 @@ public:
     bool isConsuming();
 
     bool preProcess(sp<GraphicBuffer> buffer);
+    bool wakeUp();
     void exit();
 
     bool isOmxVideoFrame(sp<GraphicBuffer> activeBuffer);
@@ -151,17 +152,21 @@ void HwcSidebandAgent::notify() {
     mStateCondition.broadcast();
 }
 
-bool HwcSidebandAgent::preProcess(sp<GraphicBuffer> buffer) {
-    if (isOmxVideoFrame(buffer)) {
-       setOmxPTS(buffer);
-    }
-
+bool HwcSidebandAgent::wakeUp() {
     if (isConsuming()) {
         notify();
         return true;
     }
 
     return false;
+}
+
+bool HwcSidebandAgent::preProcess(sp<GraphicBuffer> buffer) {
+    if (isOmxVideoFrame(buffer)) {
+       setOmxPTS(buffer);
+    }
+
+    return true;
 }
 
 bool HwcSidebandAgent::isOmxVideoFrame(sp<GraphicBuffer> activeBuffer) {
@@ -547,14 +552,12 @@ bool Layer::dropOmxFrame(status_t &updateResult) {
         }
 
         mQueueItems.removeAt(0);
+        android_atomic_dec(&mQueuedFrames);
     }
 
-    // Decrement the queued-frames count.  Signal another event if we
-    // have more frames pending.
-    if ((queuedBuffer && android_atomic_dec(&mQueuedFrames) > 1)
-            || mAutoRefresh) {
-        return true;
-    }
+    // update the active buffer
+    mActiveBuffer = mSurfaceFlingerConsumer->getCurrentBuffer(
+            &mActiveBufferSlot);
 
     return true;
 }
@@ -603,6 +606,11 @@ void Layer::onFrameAvailable(const BufferItem& item) {
             }
         }
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+        const sp<GraphicBuffer>& buf(item.mGraphicBuffer);
+        mHwcAgent->preProcess(buf);
+#endif
+
         mQueueItems.push_back(item);
         android_atomic_inc(&mQueuedFrames);
 
@@ -612,8 +620,7 @@ void Layer::onFrameAvailable(const BufferItem& item) {
     }
 
 #ifdef REDUCE_VIDEO_WORKLOAD
-    const sp<GraphicBuffer>& buf(item.mGraphicBuffer);
-    if (mHwcAgent->preProcess(buf)) {
+    if (mHwcAgent->wakeUp()) {
         return;
     }
 #endif

@@ -365,7 +365,16 @@ status_t ConsumerBase::addReleaseFenceLocked(int slot,
             mSlots[slot].mFence = fence;
             return BAD_VALUE;
         }
-        mSlots[slot].mFence = mergedFence;
+        auto mergeStatus = mergedFence->getStatus();
+        if (mergeStatus == Fence::Status::Signaled) {
+            nsecs_t currentSignalTime = mSlots[slot].mFence->getSignalTime();
+            nsecs_t incomingSignalTime = fence->getSignalTime();
+            if (currentSignalTime < incomingSignalTime) {
+                mSlots[slot].mFence = fence;
+            }
+        } else {
+            mSlots[slot].mFence = mergedFence;
+        }
     } else if (incomingStatus == Fence::Status::Unsignaled) {
         // If one fence has signaled and the other hasn't, the unsignaled
         // fence will approximately correspond with the correct timestamp.

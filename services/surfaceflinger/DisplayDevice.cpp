@@ -597,9 +597,25 @@ void DisplayDevice::setProjection(int orientation,
             frame = frameRatio > 1.0 ? newFrame : frame;
             ALOGI("%d,[%d,%d]",__LINE__,frame.getWidth(),frame.getHeight());
         }
+   
+        property_get("persist.orientation.vhshow", value, "false");
+        if(!strcmp(value,"true")) {
+            property_get("persist.orientation.vhinit", value, "0");
+            eInitOrientation = atoi(value);
+            if(eInitOrientation == 0) {
+                int width,height;
+                width = getWidth()>getHeight() ? getWidth():getHeight();
+                height = width == getHeight()  ? getWidth():getHeight();
+                frame = Rect(0,0,width, height);
+            } else if(eInitOrientation == 1) {
+                int width,height;
+                width = getWidth()<getHeight() ? getWidth():getHeight();
+                height = width == getHeight()  ? getWidth():getHeight();
+                frame = Rect(0,0,width, height);
+            }
+        }
         ALOGV("update frame [%d,%d]",frame.getWidth(),frame.getHeight());
     }
-
     if (mType == DisplayDevice::DISPLAY_PRIMARY) {
         mClientOrientation = orientation;
         orientation = (mHardwareOrientation + orientation) % 4;

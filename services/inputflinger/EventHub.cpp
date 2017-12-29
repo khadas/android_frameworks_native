@@ -1067,7 +1067,7 @@ static const int32_t GAMEPAD_KEYCODES[] = {
 
 status_t EventHub::openDeviceLocked(const char *devicePath) {
     char buffer[80];
-
+    static int  TouchDevDisplayID = 1;
     ALOGV("Opening device: %s", devicePath);
 
     int fd = open(devicePath, O_RDWR | O_CLOEXEC);
@@ -1325,8 +1325,22 @@ status_t EventHub::openDeviceLocked(const char *devicePath) {
     }
 
     // Determine whether the device is external or internal.
+    //if (isExternalDeviceLocked(device)) {
+    //    device->classes |= INPUT_DEVICE_CLASS_EXTERNAL;
+    //}
     if (isExternalDeviceLocked(device)) {
-        device->classes |= INPUT_DEVICE_CLASS_EXTERNAL;
+       //Determine whether the device is touch pad.
+       if(device->classes&0x14==(INPUT_DEVICE_CLASS_TOUCH | INPUT_DEVICE_CLASS_TOUCH_MT)){
+           //usb touch devices,we only need one for external display
+           if(TouchDevDisplayID == 1){
+               device->classes |= INPUT_DEVICE_CLASS_EXTERNAL;
+               ALOGE("dualscreen %d  name:       \"%s\" id : %d device_class:%x  \n",
+               __LINE__, device->identifier.name.string(),device->id,device->classes);
+               TouchDevDisplayID = 0;
+           }
+       }else{
+           device->classes |= INPUT_DEVICE_CLASS_EXTERNAL;
+       }
     }
 
     if (device->classes & (INPUT_DEVICE_CLASS_JOYSTICK | INPUT_DEVICE_CLASS_DPAD)

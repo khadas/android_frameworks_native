@@ -1208,7 +1208,6 @@ typedef unsigned int u32;
 typedef signed char s8;
 typedef signed short s16;
 typedef signed int s32;
-#define ARM_P010            0x4000000
 #define HDRUSAGE            0x3000000
 #define RK_XXX_PATH         "/system/lib64/librockchipxxx.so"
 typedef void (*__rockchipxxx)(u8 *src, u8 *dst, int w, int h, int srcStride, int dstStride, int area);
@@ -1288,7 +1287,7 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
        mActiveBuffer->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10 )
     {
 #if RK_HDR
-        const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE | ARM_P010;
+        const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE | GRALLOC_USAGE_TO_USE_ARM_P010;
         const int yuvTexFormat = HAL_PIXEL_FORMAT_YCrCb_NV12_10;
 #elif (RK_NV12_10_TO_NV12_BY_NENO | RK_NV12_10_TO_NV12_BY_RGA)
         const int yuvTexUsage = GraphicBuffer::USAGE_HW_TEXTURE;

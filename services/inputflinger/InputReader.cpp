@@ -55,7 +55,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
-
+#include "cutils/properties.h"
 #define INDENT "  "
 #define INDENT2 "    "
 #define INDENT3 "      "
@@ -2223,6 +2223,10 @@ void KeyboardInputMapper::process(const RawEvent* rawEvent) {
     case EV_MSC: {
         if (rawEvent->code == MSC_SCAN) {
             mCurrentHidUsage = rawEvent->value;
+			 if ( rawEvent->value == 0xc0221 ) {
+                property_set("persist.audio.huitong_remote.in", "enable");
+                ALOGI("property_set() persist.audio.huitong_remote.in = enable");
+            }
         }
         break;
     }

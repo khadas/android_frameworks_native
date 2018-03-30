@@ -1208,7 +1208,7 @@ typedef unsigned int u32;
 typedef signed char s8;
 typedef signed short s16;
 typedef signed int s32;
-#define HDRUSAGE            0x3000000
+#define HDRUSAGE            0x2000000
 #define RK_XXX_PATH         "/system/lib64/librockchipxxx.so"
 typedef void (*__rockchipxxx)(u8 *src, u8 *dst, int w, int h, int srcStride, int dstStride, int area);
 
@@ -1661,7 +1661,7 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
 
 #if RK_HDR
     if(mActiveBuffer->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10
-        && (mActiveBuffer->getUsage() & HDRUSAGE)) {
+        && ((mActiveBuffer->getUsage() & 0x0F000000) == HDRUSAGE)) {
         engine.setupHdr(true);
         engine.setupMRatioTexturing();
     }
@@ -1676,7 +1676,7 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
 #endif
 
 #if defined(EECOLOR)
-		if (mActiveBuffer->getUsage() & HDRUSAGE)
+		if ((mActiveBuffer->getUsage() & 0x0F000000) == HDRUSAGE)
 		{
 			gbUseEEColorShader = true;
 		}

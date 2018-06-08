@@ -145,7 +145,9 @@ ssize_t SensorDevice::poll(sensors_event_t* buffer, size_t count) {
     do {
         c = mSensorDevice->poll(reinterpret_cast<struct sensors_poll_device_t *> (mSensorDevice),
                                 buffer, count);
-
+/* 这里不对sensor数据做转换，否则无法覆盖所有的sensor类型，sensor方向由底层来保证，
+   其实无论hwrotation如何定义，对sensor来说只关心最终的产品方向定义如何，sensor只要根据最终的产品方向定义来确认自身方向即可*/
+#if 0
         for ( size_t i = 0; i < count; i++ )
         {
             sensors_event_t* event = &(buffer[i]);
@@ -165,6 +167,7 @@ ssize_t SensorDevice::poll(sensors_event_t* buffer, size_t count) {
                 break;
             }
         }
+#endif
     } while (c == -EINTR);
     return c;
 }

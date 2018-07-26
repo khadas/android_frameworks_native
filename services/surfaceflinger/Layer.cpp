@@ -82,6 +82,9 @@ typedef struct
 
 #define TexBufferMax  2
 #define TexKey 0x524f434b
+
+#define ALIGN(val, align) (((val) + ((align) - 1)) & ~((align) - 1))
+
 static TexBufferImag yuvTeximg[TexBufferMax] = {{NULL,EGL_NO_IMAGE_KHR},{NULL,EGL_NO_IMAGE_KHR}};
 #endif
 
@@ -1353,7 +1356,14 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
             dlclose(dso);
             return;
         }
-        rockchipxxx((u8*)src_vaddr, (u8*)dst_vaddr, src_r - src_l, src_b - src_t, src_stride, (src_r - src_l)*2, 0);
+		/* align w to 64 */
+		w = ALIGN(w, 64);
+		if(w <= yuvTeximg[yuvIndex].yuvTexBuffer->getStride()/2)
+		{
+			rockchipxxx((u8*)src_vaddr, (u8*)dst_vaddr, w, src_b - src_t, src_stride, yuvTeximg[yuvIndex].yuvTexBuffer->getStride(), 0);
+		}
+		else
+			ALOGE("%s(%d):unsupport resolution for 4k", __FUNCTION__, __LINE__);
 #elif RK_NV12_10_TO_NV12_BY_NENO
         if(rockchipxxx3288 == NULL)
             rockchipxxx3288 = (__rockchipxxx3288)dlsym(dso, "_Z15rockchipxxx3288PhS_iiiii");

@@ -170,6 +170,7 @@ public:
 #endif
 
 private:
+    bool mIsSkipThisFrame;
     friend class Client;
     friend class DisplayEventConnection;
     friend class Layer;
@@ -440,7 +441,8 @@ private:
     void doComposition();
     void doDebugFlashRegions();
     void doDisplayComposition(const sp<const DisplayDevice>& hw, const Region& dirtyRegion);
-
+    bool skipFramesBeforRotate(const sp<const DisplayDevice>& displayDevice,
+            int& index, int skipFrameNum);
     // compose surfaces for display hw. this fails if using GL and the surface
     // has been destroyed and is no longer valid.
     bool doComposeSurfaces(const sp<const DisplayDevice>& hw, const Region& dirty);

@@ -88,6 +88,7 @@ extern eeColor::APIFunctions gEEColorAPIFunctions;
 #endif
 
 #define DISPLAY_COUNT       1
+#define SKIP_FRAMES         1
 
 /*
  * DEBUG_SCREENSHOTS: set to true to check that screenshots are not all
@@ -1293,6 +1294,28 @@ void SurfaceFlinger::rebuildLayerStacks() {
 }
 
 void SurfaceFlinger::setUpHWComposer() {
+
+    static int frameIndex = 0;
+
+    mIsSkipThisFrame = false;
+    for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        if (mDisplays[dpy]->getDisplayType() == HWC_DISPLAY_PRIMARY) {
+            mIsSkipThisFrame = skipFramesBeforRotate(mDisplays[dpy], frameIndex, SKIP_FRAMES);
+            for (auto& layer : mDisplays[dpy]->getVisibleLayersSortedByZ()) {
+                if (strstr(layer->getName().string(), "ScreenshotSurface")) {
+                    int Value = layer->getCurrentState().dataSpace;
+                    if (mIsSkipThisFrame) {
+                        Value |= 0xAA;
+                    } else {
+                        Value &= ~0xAA;
+                    }
+                    layer->setDataSpace((android_dataspace) Value);
+                    break;
+                }
+            }
+        }
+    }
+
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
         bool dirty = !mDisplays[dpy]->getDirtyRegion(false).isEmpty();
         bool empty = mDisplays[dpy]->getVisibleLayersSortedByZ().size() == 0;
@@ -2255,6 +2278,48 @@ void SurfaceFlinger::doDisplayComposition(const sp<const DisplayDevice>& hw,
 
     // swap buffers (presentation)
     hw->swapBuffers(getHwComposer());
+}
+
+bool SurfaceFlinger::skipFramesBeforRotate(const sp<const DisplayDevice>& displayDevice,
+        int& index, int skipFrameNum)
+{
+    bool findTargetLayer = false;
+    bool orientationChanged = false;
+    bool existDisplayExternal = false;
+
+    static int displayDeviceOrientationOld;
+    int displayDeviceOrientationNew = displayDevice->getOrientation();
+
+    if (displayDeviceOrientationNew != displayDeviceOrientationOld) {
+        orientationChanged = true;
+    }
+
+    for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        const sp<DisplayDevice>& hw(mDisplays[dpy]);
+        if (hw->getDisplayType() == HWC_DISPLAY_EXTERNAL && hw->isDisplayOn()){
+            existDisplayExternal = true;
+            break;
+        }
+    }
+
+    for (auto& layer : displayDevice->getVisibleLayersSortedByZ()) {
+        if (strstr(layer->getName().string(), "ScreenshotSurface")) {
+            findTargetLayer = true;
+            break;
+        }
+    }
+
+    if(orientationChanged && existDisplayExternal && findTargetLayer) {
+        if (index < skipFrameNum) {
+            ALOGD("Skip %d frames", ++index);
+            return true;
+        } else {
+            ALOGD("Skip frames done.");
+            index = 0;
+            displayDeviceOrientationOld = displayDeviceOrientationNew;
+        }
+    }
+    return false;
 }
 
 bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const Region& dirty)

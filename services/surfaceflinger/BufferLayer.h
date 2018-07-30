@@ -60,6 +60,13 @@ public:
                 uint32_t h, uint32_t flags);
 
     ~BufferLayer() override;
+    int get_handle_displayStereo(buffer_handle_t hnd);
+    int set_handle_displayStereo(buffer_handle_t hnd, int32_t displayStereo);
+    int get_handle_alreadyStereo(buffer_handle_t hnd);
+    int set_handle_alreadyStereo(buffer_handle_t hnd, int32_t alreadyStereo);
+    int get_handle_layername(buffer_handle_t hnd, char* layername, unsigned long len);
+    int set_handle_layername(buffer_handle_t hnd, const char* layername);
+
 
     // If we have received a new buffer this frame, we will pass its surface
     // damage down to hardware composer. Otherwise, we must send a region with

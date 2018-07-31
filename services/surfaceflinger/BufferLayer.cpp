@@ -450,6 +450,40 @@ void BufferLayer::onDraw(const RenderArea& renderArea, const Region& clip,
     engine.disableTexturing();
 }
 
+#if RK_STEREO
+void setStereoDraw(const RenderArea& renderArea, RE::RenderEngine& engine,
+    Mesh& mMesh, int alreadyStereo, int displayStereo)
+{
+   Mesh::VertexArray<vec2> position(mMesh.getPositionArray<vec2>());
+
+   if(1==displayStereo && !alreadyStereo) {
+       position[0].x /= 2;
+       position[1].x /= 2;
+       position[2].x /= 2;
+       position[3].x /= 2;
+       engine.drawMesh(mMesh);
+
+       position[0].x += (renderArea.getWidth()/2);
+       position[1].x += (renderArea.getWidth()/2);
+       position[2].x += (renderArea.getWidth()/2);
+       position[3].x += (renderArea.getWidth()/2);
+   }
+
+   if(2==displayStereo && !alreadyStereo) {
+       position[0].y /= 2;
+       position[1].y /= 2;
+       position[2].y /= 2;
+       position[3].y /= 2;
+       engine.drawMesh(mMesh);
+
+       position[0].y += (renderArea.getHeight()/2);
+       position[1].y += (renderArea.getHeight()/2);
+       position[2].y += (renderArea.getHeight()/2);
+       position[3].y += (renderArea.getHeight()/2);
+   }
+}
+#endif
+
 void BufferLayer::onLayerDisplayed(const sp<Fence>& releaseFence) {
     mConsumer->setReleaseFence(releaseFence);
 }
@@ -883,10 +917,30 @@ void BufferLayer::setPerFrameData(const sp<const DisplayDevice>& displayDevice) 
               getBE().compositionInfo.mBuffer->handle, to_string(error).c_str(),
               static_cast<int32_t>(error));
     }
+#if RK_LAYER_NAME
     // Use rk ashmem -------
     set_handle_layername(getBE().compositionInfo.mBuffer->handle, mName.string());
+#endif
+
+#if RK_STEREO
+    set_handle_alreadyStereo(getBE().compositionInfo.mBuffer->handle, mConsumer->getAlreadyStereo());
+    set_handle_displayStereo(getBE().compositionInfo.mBuffer->handle, 0);
+#endif
     // Use rk ashmem -------
+
+
 }
+#if RK_STEREO
+void BufferLayer::setDisplayStereo(){
+    ALOGD("DEBUG_lb setDisplayStereo [%s] ",mName.string());
+    if(getBE().compositionInfo.mBuffer != nullptr && getBE().compositionInfo.mBuffer->handle)
+    {
+        displayStereo = get_handle_displayStereo(getBE().compositionInfo.mBuffer->handle);
+    }
+    else
+        displayStereo = 0;
+}
+#endif
 
 bool BufferLayer::isOpaque(const Layer::State& s) const {
     // if we don't have a buffer or sidebandStream yet, we're translucent regardless of the
@@ -1074,6 +1128,11 @@ void BufferLayer::drawWithOpenGL(const RenderArea& renderArea, bool useIdentityT
     engine.setupLayerBlending(mPremultipliedAlpha, isOpaque(s), false /* disableTexture */,
                               getColor());
     engine.setSourceDataSpace(mCurrentDataSpace);
+
+#if RK_STEREO
+    setStereoDraw(renderArea, engine, getBE().mMesh,
+        mConsumer->getAlreadyStereo(), displayStereo);
+#endif
 
     if (isHdrY410()) {
         engine.setSourceY410BT2020(true);

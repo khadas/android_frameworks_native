@@ -264,7 +264,11 @@ status_t BufferHubProducer::queueBuffer(int slot, const QueueBufferInput& input,
                   &fence);
 
     // Check input scaling mode is valid.
+#if RK_STEREO
+    switch (scaling_mode & 0xff) {
+#else
     switch (scaling_mode) {
+#endif
         case NATIVE_WINDOW_SCALING_MODE_FREEZE:
         case NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW:
         case NATIVE_WINDOW_SCALING_MODE_SCALE_CROP:

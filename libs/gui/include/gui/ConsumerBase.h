@@ -28,7 +28,6 @@
 #include <utils/Vector.h>
 #include <utils/threads.h>
 
-
 namespace android {
 // ----------------------------------------------------------------------------
 
@@ -88,6 +87,9 @@ public:
 
     // See IGraphicBufferConsumer::setDefaultBufferDataSpace
     status_t setDefaultBufferDataSpace(android_dataspace defaultDataSpace);
+
+    // for RK_STEREO
+    int32_t getAlreadyStereo();
 
     // See IGraphicBufferConsumer::setConsumerUsageBits
     status_t setConsumerUsageBits(uint64_t usage);
@@ -273,6 +275,9 @@ protected:
     //
     // This mutex is intended to be locked by derived classes.
     mutable Mutex mMutex;
+
+    // for RK_STEREO
+    int32_t mAlreadyStereo;
 };
 
 // ----------------------------------------------------------------------------

@@ -2112,6 +2112,15 @@ void SurfaceFlinger::setUpHWComposer() {
         status_t result = displayDevice->prepareFrame(*getBE().mHwc);
         ALOGE_IF(result != NO_ERROR, "prepareFrame for display %zd failed:"
                 " %d (%s)", displayId, result, strerror(-result));
+#if RK_STEREO
+            const int32_t id = displayDevice->getHwcDisplayId();
+            if (id >= 0) {
+                for (auto& layer : displayDevice->getVisibleLayersSortedByZ())
+                {
+                    layer->setDisplayStereo();
+                }
+            }
+#endif
     }
 }
 

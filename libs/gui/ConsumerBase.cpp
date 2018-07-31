@@ -62,6 +62,11 @@ ConsumerBase::ConsumerBase(const sp<IGraphicBufferConsumer>& bufferQueue, bool c
     // Choose a name using the PID and a process-unique ID.
     mName = String8::format("unnamed-%d-%d", getpid(), createProcessUniqueId());
 
+    // Init the stereo to zero for something it is random value
+#if RK_STEREO
+    mAlreadyStereo = 0;
+#endif
+
     // Note that we can't create an sp<...>(this) in a ctor that will not keep a
     // reference once the ctor ends, as that would cause the refcount of 'this'
     // dropping to 0 at the end of the ctor.  Since all we need is a wp<...>
@@ -365,8 +370,19 @@ status_t ConsumerBase::acquireBufferLocked(BufferItem *item,
     CB_LOGV("acquireBufferLocked: -> slot=%d/%" PRIu64,
             item->mSlot, item->mFrameNumber);
 
+#if RK_STEREO
+    mAlreadyStereo = (item->mScalingMode & 0xFF00) >> 8;
+    item->mScalingMode = item->mScalingMode & 0xFFFF00FF;
+#endif
+
     return OK;
 }
+
+#if RK_STEREO
+int32_t ConsumerBase::getAlreadyStereo() {
+    return mAlreadyStereo;
+}
+#endif
 
 status_t ConsumerBase::addReleaseFence(int slot,
         const sp<GraphicBuffer> graphicBuffer, const sp<Fence>& fence) {

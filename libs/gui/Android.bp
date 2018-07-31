@@ -28,6 +28,7 @@ cc_library_shared {
     cflags: [
         "-Wall",
         "-Werror",
+        "-DRK_STEREO=1",
     ],
     cppflags: [
         "-Weverything",

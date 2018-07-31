@@ -156,6 +156,10 @@ public:
     // the same.
     int32_t sequence;
 
+#if RK_STEREO
+    int32_t displayStereo;
+#endif
+
     enum { // flags for doTransaction()
         eDontUpdateGeometryState = 0x00000001,
         eVisibleRegion = 0x00000002,
@@ -384,6 +388,10 @@ public:
     void forceClientComposition(int32_t hwcId);
     bool getForceClientComposition(int32_t hwcId);
     virtual void setPerFrameData(const sp<const DisplayDevice>& displayDevice) = 0;
+
+#if RK_STEREO
+    virtual void setDisplayStereo() {};
+#endif
 
     // callIntoHwc exists so we can update our local state and call
     // acceptDisplayChanges without unnecessarily updating the device's state

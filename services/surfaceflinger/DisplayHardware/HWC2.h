@@ -307,6 +307,9 @@ public:
     // destroyed, so it's not safe to call methods on it.
     void setLayerDestroyedListener(std::function<void(Layer*)> listener);
 
+#if RK_LAYER_NAME
+    [[clang::warn_unused_result]] Error setLayername( const char *layername) = 0;
+#endif
     [[clang::warn_unused_result]] Error setCursorPosition(int32_t x, int32_t y);
     [[clang::warn_unused_result]] Error setBuffer(uint32_t slot,
             const android::sp<android::GraphicBuffer>& buffer,

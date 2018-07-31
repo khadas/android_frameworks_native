@@ -54,6 +54,18 @@
 #include "../Layer.h"           // needed only for debugging
 #include "../SurfaceFlinger.h"
 
+#define RK_SUPPORT                        (1)
+
+#if RK_SUPPORT
+//#define RK_COMP_TYPE                      (1)
+//#define RK_WAIT_HDMI_OUT                  (1)
+//#define RK_DRM_HDMI                       (1)
+#define RK_LAYER_NAME                     (1)
+//#define RK_USE_BLEND_SEPARATE             (1)
+//#define RK_OPT_DVFS                       (1)
+#endif
+
+
 #define LOG_DISPLAY_ERROR(displayId, msg) \
     ALOGE("%s failed for display %d: %s", __FUNCTION__, displayId, msg)
 

@@ -1426,7 +1426,7 @@ uint32_t CursorButtonAccumulator::getButtonState() const {
         result |= AMOTION_EVENT_BUTTON_PRIMARY;
     }
     if (mBtnRight) {
-        char *targetProduct = new char[PROPERTY_VALUE_MAX];
+        char targetProduct[PROPERTY_VALUE_MAX] = {0};
         property_get("ro.target.product", targetProduct, "");
         if (strcmp(targetProduct, "box") == 0 || strcmp(targetProduct, "atv") == 0) {
             result |= AMOTION_EVENT_BUTTON_BACK;

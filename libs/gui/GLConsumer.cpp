@@ -813,6 +813,10 @@ void GLConsumer::computeTransformMatrix(float outTransform[16],
         float bufferWidth = buf->getWidth();
         float bufferHeight = buf->getHeight();
         float shrinkAmount = 0.0f;
+
+        if (buf->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10)
+            bufferWidth = (cropRect.width() + 31) & (~31);
+
         if (filtering) {
             // In order to prevent bilinear sampling beyond the edge of the
             // crop rectangle we may need to shrink it by 2 texels in each

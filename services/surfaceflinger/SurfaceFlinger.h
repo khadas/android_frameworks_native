@@ -178,7 +178,6 @@ public:
     // constant members (no synchronization needed for access)
     std::unique_ptr<RE::RenderEngine> mRenderEngine;
     EGLContext mEGLContext;
-    EGLDisplay mEGLDisplay;
 
     FenceTimeline mGlCompositionDoneTimeline;
     FenceTimeline mDisplayTimeline;
@@ -336,8 +335,8 @@ public:
     void onMessageReceived(int32_t what);
 
 #if RK_FPS
-        //add by rk for fps
-        void debugShowFPS() const;
+    //add by rk for fps
+    void debugShowFPS() const;
 #endif
 
     // for debugging only

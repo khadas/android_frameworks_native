@@ -162,6 +162,7 @@ RenderEngine::~RenderEngine() {
 }
 
 void RenderEngine::setEGLHandles(EGLDisplay display, EGLConfig config, EGLContext ctxt) {
+    mEGLDisplayBase = display;
     mEGLDisplay = display;
     mEGLConfig = config;
     mEGLContext = ctxt;

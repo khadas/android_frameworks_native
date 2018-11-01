@@ -18,6 +18,7 @@ cc_defaults {
         "-DGL_GLEXT_PROTOTYPES",
         "-DEGL_EGLEXT_PROTOTYPES",
         "-DRK_STEREO",
+        "-DRK_NV12_10_TO_NV12",
     ],
     shared_libs: [
         "android.frameworks.vr.composer@1.0",
@@ -51,6 +52,7 @@ cc_defaults {
         "libui",
         "libutils",
         "libvulkan",
+        "librga"
     ],
     static_libs: [
         "libserviceutils",
@@ -73,7 +75,12 @@ cc_defaults {
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
+        "librga",
     ],
+    include_dirs:[
+        "hardware/rockchip/librga",
+        "hardware/rockchip/librga/normal",
+    ]
 }
 
 cc_library_headers {

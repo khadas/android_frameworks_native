@@ -71,9 +71,11 @@ public:
     MOCK_METHOD2(bindNativeBufferAsFrameBuffer,
                  void(ANativeWindowBuffer*, RE::BindNativeBufferAsFramebuffer*));
     MOCK_METHOD1(unbindNativeBufferAsFrameBuffer, void(RE::BindNativeBufferAsFramebuffer*));
+    MOCK_METHOD2(bindyuvimg, void(EGLImageKHR, GLuint));
     MOCK_METHOD1(drawMesh, void(const Mesh&));
     MOCK_CONST_METHOD0(getMaxTextureSize, size_t());
     MOCK_CONST_METHOD0(getMaxViewportDims, size_t());
+    MOCK_CONST_METHOD0(getEGLDisplay,EGLDisplay());
 };
 
 class Surface : public RE::Surface {

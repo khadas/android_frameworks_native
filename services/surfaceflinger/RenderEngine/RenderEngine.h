@@ -29,6 +29,7 @@
 #include <gui/SurfaceControl.h>
 #include <math/mat4.h>
 
+typedef unsigned int GLuint;
 #define EGL_NO_CONFIG ((EGLConfig)0)
 
 struct ANativeWindowBuffer;
@@ -55,6 +56,7 @@ class RenderEngine;
 
 class RenderEngine {
 public:
+    EGLDisplay mEGLDisplayBase;
     enum FeatureFlag {
         WIDE_COLOR_SUPPORT = 1 << 0 // Platform has a wide color display
     };
@@ -102,6 +104,8 @@ public:
                                                RE::BindNativeBufferAsFramebuffer* bindHelper) = 0;
     virtual void unbindNativeBufferAsFrameBuffer(RE::BindNativeBufferAsFramebuffer* bindHelper) = 0;
 
+    virtual void bindyuvimg(EGLImageKHR image,GLuint name) = 0;
+
     // set-up
     virtual void checkErrors() const;
     virtual void setViewportAndProjection(size_t vpw, size_t vph, Rect sourceCrop, size_t hwh,
@@ -130,6 +134,8 @@ public:
     // queries
     virtual size_t getMaxTextureSize() const = 0;
     virtual size_t getMaxViewportDims() const = 0;
+
+    EGLDisplay getEGLDisplayBase() const{ return mEGLDisplayBase; };
 };
 
 class BindNativeBufferAsFramebuffer {
@@ -170,6 +176,7 @@ class RenderEngine : public RE::RenderEngine {
     void setEGLHandles(EGLDisplay display, EGLConfig config, EGLContext ctxt);
 
     static bool overrideUseContextPriorityFromConfig(bool useContextPriority);
+
 
 protected:
     RenderEngine(uint32_t featureFlags);

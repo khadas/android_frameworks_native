@@ -166,6 +166,7 @@ size_t GLES20RenderEngine::getMaxViewportDims() const {
     return mMaxViewportDims[0] < mMaxViewportDims[1] ? mMaxViewportDims[0] : mMaxViewportDims[1];
 }
 
+
 void GLES20RenderEngine::setViewportAndProjection(size_t vpw, size_t vph, Rect sourceCrop,
                                                   size_t hwh, bool yswap,
                                                   Transform::orientation_flags rotation) {
@@ -295,6 +296,12 @@ void GLES20RenderEngine::bindImageAsFramebuffer(EGLImageKHR image, uint32_t* tex
     *status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     *texName = tname;
     *fbName = name;
+}
+void GLES20RenderEngine::bindyuvimg(EGLImageKHR image,GLuint name) {
+    // turn our EGLImage into a texture
+    //glGenTextures(1, &name);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, name);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, (GLeglImageOES)image);
 }
 
 void GLES20RenderEngine::unbindFramebuffer(uint32_t texName, uint32_t fbName) {

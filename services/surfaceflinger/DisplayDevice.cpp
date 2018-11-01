@@ -273,6 +273,7 @@ DisplayDevice::DisplayDevice(
                 ALOGE("UNKNOWN HDR capability: %d", static_cast<int32_t>(hdrType));
         }
     }
+    mHasHdr10 = true;
 
     float minLuminance = hdrCapabilities.getDesiredMinLuminance();
     float maxLuminance = hdrCapabilities.getDesiredMaxLuminance();

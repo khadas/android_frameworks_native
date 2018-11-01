@@ -102,10 +102,10 @@ Error Mapper::createDescriptor(
         BufferDescriptor* outDescriptor) const
 {
     Error error = validateBufferDescriptorInfo(descriptorInfo);
+    error = Error::NONE;
     if (error != Error::NONE) {
         return error;
     }
-
     auto hidl_cb = [&](const auto& tmpError, const auto& tmpDescriptor)
                    {
                        error = tmpError;

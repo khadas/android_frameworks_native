@@ -773,7 +773,7 @@ status_t BufferQueueProducer::queueBuffer(int slot,
 
     auto acquireFenceTime = std::make_shared<FenceTime>(acquireFence);
 
-    switch (scalingMode) {
+    switch (scalingMode & 0xFF) {
         case NATIVE_WINDOW_SCALING_MODE_FREEZE:
         case NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW:
         case NATIVE_WINDOW_SCALING_MODE_SCALE_CROP:

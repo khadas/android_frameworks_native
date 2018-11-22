@@ -313,7 +313,7 @@ public:
     void setLayerDestroyedListener(std::function<void(Layer*)> listener);
 
 #if RK_LAYER_NAME
-    [[clang::warn_unused_result]] Error setLayername( const char *layername) = 0;
+    [[clang::warn_unused_result]] Error setLayername( const char *layername);
 #endif
     [[clang::warn_unused_result]] Error setCursorPosition(int32_t x, int32_t y);
     [[clang::warn_unused_result]] Error setBuffer(uint32_t slot,

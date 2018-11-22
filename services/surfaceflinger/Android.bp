@@ -19,6 +19,7 @@ cc_defaults {
         "-DEGL_EGLEXT_PROTOTYPES",
         "-DRK_STEREO",
         "-DRK_NV12_10_TO_NV12",
+        "-DRK_LAYER_NAME"
     ],
     shared_libs: [
         "android.frameworks.vr.composer@1.0",

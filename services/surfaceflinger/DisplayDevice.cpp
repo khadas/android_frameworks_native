@@ -274,6 +274,7 @@ DisplayDevice::DisplayDevice(
         }
     }
     mHasHdr10 = true;
+    mHasHLG = true;
 
     float minLuminance = hdrCapabilities.getDesiredMinLuminance();
     float maxLuminance = hdrCapabilities.getDesiredMaxLuminance();

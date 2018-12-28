@@ -842,7 +842,7 @@ void SurfaceFlinger::debugShowFPS() const
     mFrameCount++;
     nsecs_t now = systemTime();
     nsecs_t diff = now - mLastFpsTime;
-    if (diff > ms2ns(5)) {
+    if (diff > ms2ns(500)) {
         mFps =  ((mFrameCount - mLastFrameCount) * float(s2ns(1))) / diff;
         mLastFpsTime = now;
         mLastFrameCount = mFrameCount;

@@ -100,6 +100,11 @@ public:
             Y410_BT2020_MASK = 1 << Y410_BT2020_SHIFT,
             Y410_BT2020_OFF = 0 << Y410_BT2020_SHIFT,
             Y410_BT2020_ON = 1 << Y410_BT2020_SHIFT,
+
+                
+            HDR_MASK                =       0x00001000,
+            HDR_ON                  =       0x00001000,
+            HDR_OFF                 =       0x00000000,
         };
 
         inline Key() : mKey(0) {}
@@ -126,6 +131,9 @@ public:
         }
         inline int getInputTF() const { return (mKey & INPUT_TF_MASK); }
         inline int getOutputTF() const { return (mKey & OUTPUT_TF_MASK); }
+        inline bool hasHdr() const {
+            return (mKey & HDR_MASK) == HDR_ON;
+        }
 
         // When HDR and non-HDR contents are mixed, or different types of HDR contents are
         // mixed, we will do a tone mapping process to tone map the input content to output

@@ -113,6 +113,8 @@ public:
     virtual void setupLayerBlending(bool premultipliedAlpha, bool opaque, bool disableTexture,
                                     const half4& color) = 0;
     virtual void setupLayerTexturing(const Texture& texture) = 0;
+    virtual void setupMRatioTexturing() = 0;
+    virtual void loadMRatioTexturing() = 0;
     virtual void setupLayerBlackedOut() = 0;
     virtual void setupFillWithColor(float r, float g, float b, float a) = 0;
 
@@ -120,6 +122,7 @@ public:
 
     virtual void disableTexturing() = 0;
     virtual void disableBlending() = 0;
+    virtual void setupHdr(bool status) = 0;
 
     // HDR and wide color gamut support
     virtual void setSourceY410BT2020(bool enable) = 0;
@@ -251,6 +254,9 @@ public:
     virtual void bindImageAsFramebuffer(EGLImageKHR image, uint32_t* texName, uint32_t* fbName,
                                         uint32_t* status) = 0;
     virtual void unbindFramebuffer(uint32_t texName, uint32_t fbName) = 0;
+    virtual void setupMRatioTexturing() = 0;
+    virtual void loadMRatioTexturing() = 0;
+    virtual void setupHdr(bool status) = 0;
 };
 
 } // namespace impl

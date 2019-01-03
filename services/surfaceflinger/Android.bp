@@ -1,3 +1,26 @@
+bootstrap_go_package {
+    // name and pkgPath need to  according to your module
+    name: "soong-SurfaceFlinger",
+    pkgPath: "android/soong/SurfaceFlinger",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+          // include xx.go file
+          "Android.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+//Conditional compilation SurfaceFlinger
+cc_SurfaceFlinger {
+   name: "cc_SurfaceFlinger_defaults"
+}
 cc_defaults {
     name: "surfaceflinger_defaults",
     cflags: [
@@ -13,7 +36,10 @@ cc_defaults {
 
 cc_defaults {
     name: "libsurfaceflinger_defaults",
-    defaults: ["surfaceflinger_defaults"],
+    defaults: [
+        "surfaceflinger_defaults",
+        "cc_SurfaceFlinger_defaults",
+    ],
     cflags: [
         "-DGL_GLEXT_PROTOTYPES",
         "-DEGL_EGLEXT_PROTOTYPES",

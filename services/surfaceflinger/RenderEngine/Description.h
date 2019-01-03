@@ -39,10 +39,12 @@ public:
     void setPremultipliedAlpha(bool premultipliedAlpha);
     void setOpaque(bool opaque);
     void setTexture(const Texture& texture);
+    void setMRatioTexture(const Texture& texture);
     void disableTexture();
     void setColor(const half4& color);
     void setProjectionMatrix(const mat4& mtx);
     void setColorMatrix(const mat4& mtx);
+    void setHdr(bool deformstus);
     void setInputTransformMatrix(const mat3& matrix);
     void setOutputTransformMatrix(const mat4& matrix);
     bool hasInputTransformMatrix() const;
@@ -89,6 +91,8 @@ private:
 
     // projection matrix
     mat4 mProjectionMatrix;
+    bool mHdr = false;
+    Texture mMRatioTexture;
     mat4 mColorMatrix;
     mat3 mInputTransformMatrix;
     mat4 mOutputTransformMatrix;

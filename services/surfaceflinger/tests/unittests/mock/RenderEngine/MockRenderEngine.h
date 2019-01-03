@@ -64,6 +64,9 @@ public:
     MOCK_METHOD1(setSaturationMatrix, void(const mat4&));
     MOCK_METHOD0(disableTexturing, void());
     MOCK_METHOD0(disableBlending, void());
+    MOCK_METHOD0(setupMRatioTexturing, void());
+    MOCK_METHOD0(loadMRatioTexturing, void());
+    MOCK_METHOD1(setupHdr, void(bool));
     MOCK_METHOD1(setSourceY410BT2020, void(bool));
     MOCK_METHOD1(setSourceDataSpace, void(ui::Dataspace));
     MOCK_METHOD1(setOutputDataSpace, void(ui::Dataspace));

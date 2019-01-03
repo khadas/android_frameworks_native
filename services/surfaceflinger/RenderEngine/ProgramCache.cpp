@@ -26,6 +26,14 @@
 #include "Program.h"
 #include "ProgramCache.h"
 
+const char FRAG_SHADER[] = {
+#include "frag_hdr2sdr.h"
+};
+
+const char VERT_SHADER[] = {
+#include "vert_hdr2sdr.h"
+};
+
 namespace android {
 // -----------------------------------------------------------------------------------------------
 
@@ -150,7 +158,9 @@ ProgramCache::Key ProgramCache::computeKey(const Description& description) {
                      Key::INPUT_TRANSFORM_MATRIX_ON : Key::INPUT_TRANSFORM_MATRIX_OFF)
             .set(Key::Key::OUTPUT_TRANSFORM_MATRIX_MASK,
                  description.hasOutputTransformMatrix() || description.hasColorMatrix() ?
-                     Key::OUTPUT_TRANSFORM_MATRIX_ON : Key::OUTPUT_TRANSFORM_MATRIX_OFF);
+                     Key::OUTPUT_TRANSFORM_MATRIX_ON : Key::OUTPUT_TRANSFORM_MATRIX_OFF)
+            .set(Key::HDR_MASK,
+                    description.mHdr ? Key::HDR_ON :  Key::HDR_OFF);
 
     needs.set(Key::Y410_BT2020_MASK,
               description.mY410BT2020 ? Key::Y410_BT2020_ON : Key::Y410_BT2020_OFF);
@@ -516,6 +526,10 @@ void ProgramCache::generateOETF(Formatter& fs, const Key& needs) {
 
 String8 ProgramCache::generateVertexShader(const Key& needs) {
     Formatter vs;
+
+    if(needs.hasHdr()){
+        return String8(VERT_SHADER);
+    }
     if (needs.isTexturing()) {
         vs << "attribute vec4 texCoords;"
            << "varying vec2 outTexCoords;";
@@ -533,6 +547,10 @@ String8 ProgramCache::generateVertexShader(const Key& needs) {
 
 String8 ProgramCache::generateFragmentShader(const Key& needs) {
     Formatter fs;
+
+    if(needs.hasHdr()){
+        return String8(FRAG_SHADER);
+    }
     if (needs.getTextureTarget() == Key::TEXTURE_EXT) {
         fs << "#extension GL_OES_EGL_image_external : require";
     }

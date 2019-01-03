@@ -39,6 +39,10 @@ void Description::setTexture(const Texture& texture) {
     mTextureEnabled = true;
 }
 
+void Description::setMRatioTexture(const Texture& texture) {
+    mMRatioTexture = texture;
+}
+
 void Description::disableTexture() {
     mTextureEnabled = false;
 }
@@ -84,6 +88,10 @@ const mat4& Description::getColorMatrix() const {
 
 void Description::setY410BT2020(bool enable) {
     mY410BT2020 = enable;
+}
+
+void Description::setHdr(bool deformstus ) {
+    mHdr = deformstus;
 }
 
 void Description::setInputTransferFunction(TransferFunction transferFunction) {

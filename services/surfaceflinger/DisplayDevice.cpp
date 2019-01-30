@@ -538,6 +538,8 @@ void DisplayDevice::setProjection(int orientation,
 #endif
 
 #if !RK_VR & RK_HW_ROTATION
+#if 0
+
     bool isHdmiScreen = mType == DisplayDevice::DISPLAY_EXTERNAL;
     if (isHdmiScreen) {
         int eInitOrientation = 0;
@@ -616,6 +618,7 @@ void DisplayDevice::setProjection(int orientation,
         }
         ALOGV("update frame [%d,%d]",frame.getWidth(),frame.getHeight());
     }
+#endif
     if (mType == DisplayDevice::DISPLAY_PRIMARY) {
         mClientOrientation = orientation;
         orientation = (mHardwareOrientation + orientation) % 4;

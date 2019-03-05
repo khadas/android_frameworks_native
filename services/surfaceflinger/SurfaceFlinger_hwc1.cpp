@@ -96,6 +96,9 @@ extern eeColor::APIFunctions gEEColorAPIFunctions;
  */
 #define DEBUG_SCREENSHOTS   false
 
+static bool mali_r18_workround = false;
+
+
 EGLAPI const char* eglQueryStringImplementationANDROID(EGLDisplay dpy, EGLint name);
 
 namespace android {
@@ -1296,25 +1299,56 @@ void SurfaceFlinger::rebuildLayerStacks() {
 void SurfaceFlinger::setUpHWComposer() {
 
     static int frameIndex = 0;
-
+    /*
+     * MALI R18 WORKROUND method:
+     *   Mali ddk update to r18 will cause some display problem:
+     *   1) Extend display device exist and system is going to rotate, the primary will
+     *      output a error frame.
+     *   2) Extend display device exist and system is going to sleep, the primary will
+     *      output a error frame.
+     */
     mIsSkipThisFrame = false;
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
         if (mDisplays[dpy]->getDisplayType() == HWC_DISPLAY_PRIMARY) {
             mIsSkipThisFrame = skipFramesBeforRotate(mDisplays[dpy], frameIndex, SKIP_FRAMES);
             for (auto& layer : mDisplays[dpy]->getVisibleLayersSortedByZ()) {
+                /*
+                 * MALI R18 WORKROUND method carried out:
+                 *   1) Extend display device exist and system is going to rotate, the primary will
+                 *      output a error frame.
+                 */
                 if (strstr(layer->getName().string(), "ScreenshotSurface")) {
-                    int Value = layer->getCurrentState().dataSpace;
+                    int newValue = layer->getCurrentState().dataSpace;
                     if (mIsSkipThisFrame) {
-                        Value |= 0xAA;
+                        newValue |= 0xAA;
                     } else {
-                        Value &= ~0xAA;
+                        newValue &= ~0xAA;
                     }
-                    layer->setDataSpace((android_dataspace) Value);
-                    break;
+                    layer->setDataSpace((android_dataspace) newValue);
+                /*
+                 * MALI R18 WORKROUND method carried out:
+                 *   2) Extend display device exist and system is going to sleep, the primary will
+                 *      output a error frame.
+                 */
+                }else if(mali_r18_workround){
+                    int newValue = layer->getCurrentState().dataSpace;
+                    if (mIsSkipThisFrame) {
+                        newValue |= 0xAA;
+                    } else {
+                        newValue &= ~0xAA;
+                    }
+                    layer->setDataSpace((android_dataspace) newValue);
+                }else{
+                    int newValue = layer->getCurrentState().dataSpace;
+                    newValue &= ~0xAA;
+                    layer->setDataSpace((android_dataspace) newValue);
                 }
             }
         }
     }
+    /*
+     * MALI R18 WORKROUND method end.
+     */
 
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
         bool dirty = !mDisplays[dpy]->getDirtyRegion(false).isEmpty();
@@ -2280,11 +2314,20 @@ void SurfaceFlinger::doDisplayComposition(const sp<const DisplayDevice>& hw,
     hw->swapBuffers(getHwComposer());
 }
 
+/*
+ * MALI R18 WORKROUND method:
+ *   Mali ddk update to r18 will cause some display problem:
+ *   1) Extend display device exist and system is going to rotate, the primary will
+ *      output a error frame.
+ *   2) Extend display device exist and system is going to sleep, the primary will
+ *      output a error frame.
+ */
 bool SurfaceFlinger::skipFramesBeforRotate(const sp<const DisplayDevice>& displayDevice,
         int& index, int skipFrameNum)
 {
     bool findTargetLayer = false;
     bool orientationChanged = false;
+    bool orientationPrimaryChanged = false;
     bool existDisplayExternal = false;
 
     static int displayDeviceOrientationOld;
@@ -2293,10 +2336,13 @@ bool SurfaceFlinger::skipFramesBeforRotate(const sp<const DisplayDevice>& displa
     if (displayDeviceOrientationNew != displayDeviceOrientationOld) {
         orientationChanged = true;
     }
+    if (displayDeviceOrientationNew != 0) {
+        orientationPrimaryChanged = true;
+    }
 
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
         const sp<DisplayDevice>& hw(mDisplays[dpy]);
-        if (hw->getDisplayType() == HWC_DISPLAY_EXTERNAL && hw->isDisplayOn()){
+        if (hw->getDisplayType() != HWC_DISPLAY_PRIMARY && hw->isDisplayOn()) {
             existDisplayExternal = true;
             break;
         }
@@ -2309,13 +2355,15 @@ bool SurfaceFlinger::skipFramesBeforRotate(const sp<const DisplayDevice>& displa
         }
     }
 
-    if(orientationChanged && existDisplayExternal && findTargetLayer) {
+    if (((orientationChanged && findTargetLayer) || (orientationPrimaryChanged && mali_r18_workround))
+         && existDisplayExternal ) {
         if (index < skipFrameNum) {
-            ALOGD("Skip %d frames", ++index);
+            ALOGI("MALI-R18-WORKROUND: Skip %d frames", ++index);
             return true;
         } else {
-            ALOGD("Skip frames done.");
+            ALOGI("MALI-R18-WORKROUND: Skip %d frames have done.",skipFrameNum);
             index = 0;
+            mali_r18_workround = false;
             displayDeviceOrientationOld = displayDeviceOrientationNew;
         }
     }
@@ -3937,6 +3985,16 @@ void SurfaceFlinger::renderScreenImplLocked(
     // compositionComplete is needed for older driver
     hw->compositionComplete();
     hw->setViewportAndProjection();
+    /*
+     * MALI R18 WORKROUND method:
+     *   Mali ddk update to r18 will cause some display problem:
+     *   1) Extend display device exist and system is going to rotate, the primary will
+     *      output a error frame.
+     *   2) Extend display device exist and system is going to sleep, the primary will
+     *      output a error frame.
+     */
+    mali_r18_workround = true;
+
 #if RK_DELAY_FOR_CAPTURE
     mDelayFlag = 1;
 #endif

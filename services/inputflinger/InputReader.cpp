@@ -3269,10 +3269,13 @@ void KeyMouseInputMapper::sync(nsecs_t when) {
         } else  {
             motionEventAction = AMOTION_EVENT_ACTION_MOVE;
         }
-
         NotifyMotionArgs args(when, getDeviceId(), mSource, 0,
-                motionEventAction, 0, 0, metaState, AMOTION_EVENT_EDGE_FLAG_NONE, 0,
+                motionEventAction, 0, 0, metaState,currentButtonState,
+                AMOTION_EVENT_EDGE_FLAG_NONE,
                 displayId,0, 1, &pointerProperties, &pointerCoords, 1, 1, downTime);
+       /* NotifyMotionArgs args(when, getDeviceId(), mSource, 0,
+                motionEventAction, 0, 0, metaState, AMOTION_EVENT_EDGE_FLAG_NONE, 0,
+                displayId,0, 1, &pointerProperties, &pointerCoords, 1, 1, downTime);*/
         getListener()->notifyMotion(&args);
 
     }

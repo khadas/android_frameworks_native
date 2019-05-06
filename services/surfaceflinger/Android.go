@@ -37,7 +37,8 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cppflags = append(cppflags,
            "-DRK_NV12_10_TO_NV12_BY_RGA=0",
            "-DRK_NV12_10_TO_NV12_BY_NENO=1")
-    }else if (strings.Contains(ctx.AConfig().Getenv("TARGET_PRODUCT"),"rk3399")){
+    }else if (strings.Contains(ctx.AConfig().Getenv("TARGET_PRODUCT"),"rk3399") ||
+              strings.Contains(ctx.AConfig().Getenv("TARGET_PRODUCT"),"rk3399pro")){
         cppflags = append(cppflags,
             "-DRK_HDR=1")
     }else{

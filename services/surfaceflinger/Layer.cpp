@@ -541,6 +541,7 @@ void Layer::setGeometry(const sp<const DisplayDevice>& displayDevice, uint32_t z
 
     // computeBounds returns a FloatRect to provide more accuracy during the
     // transformation. We then round upon constructing 'frame'.
+    FloatRect sourceCrop = computeCrop(displayDevice);
     Rect frame{t.transform(computeBounds(activeTransparentRegion))};
     if (!s.finalCrop.isEmpty()) {
         if (!frame.intersect(s.finalCrop, &frame)) {
@@ -552,7 +553,18 @@ void Layer::setGeometry(const sp<const DisplayDevice>& displayDevice, uint32_t z
     }
     const Transform& tr(displayDevice->getTransform());
     Rect transformedFrame = tr.transform(frame);
-    error = hwcLayer->setDisplayFrame(transformedFrame);
+
+    if (sourceCrop.getWidth() > 0 && sourceCrop.getHeight() > 0 ) {
+        error = hwcLayer->setDisplayFrame(transformedFrame);
+    } else {
+        Rect fullrect(s.active.w, s.active.h);
+        Transform t = getTransform();
+        fullrect = t.transform(fullrect);
+        ALOGE("layer [%s] computeScreenBounds - NO PARENT [%d, %d, %d, %d]",
+            mName.string(), fullrect.left, fullrect.top, fullrect.right, fullrect.bottom);
+        error = hwcLayer->setDisplayFrame(fullrect);
+    }
+
     if (error != HWC2::Error::None) {
         ALOGE("[%s] Failed to set display frame [%d, %d, %d, %d]: %s (%d)", mName.string(),
               transformedFrame.left, transformedFrame.top, transformedFrame.right,
@@ -561,7 +573,6 @@ void Layer::setGeometry(const sp<const DisplayDevice>& displayDevice, uint32_t z
         hwcInfo.displayFrame = transformedFrame;
     }
 
-    FloatRect sourceCrop = computeCrop(displayDevice);
     error = hwcLayer->setSourceCrop(sourceCrop);
     if (error != HWC2::Error::None) {
         ALOGE("[%s] Failed to set source crop [%.3f, %.3f, %.3f, %.3f]: "

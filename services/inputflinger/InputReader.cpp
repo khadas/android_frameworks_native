@@ -1411,7 +1411,10 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
             break;
         case KEYCODE_ENTER:
         case KEYCODE_DPAD_CENTER:
-            mBtnOk = rawEvent->value;
+            char mKeyMouseState[PROPERTY_VALUE_MAX] = {0};
+            property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+            if (strcmp(mKeyMouseState, "on") == 0)
+                mBtnOk = rawEvent->value;
             break;
         }
     }
@@ -1420,7 +1423,11 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
 uint32_t CursorButtonAccumulator::getButtonState() const {
     uint32_t result = 0;
     if (mBtnOk) {
-       result |= AMOTION_EVENT_BUTTON_PRIMARY;
+       char mKeyMouseState[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+        if (strcmp(mKeyMouseState, "on") == 0) {
+         result |= AMOTION_EVENT_BUTTON_PRIMARY;
+        }
     }
     if (mBtnLeft) {
         result |= AMOTION_EVENT_BUTTON_PRIMARY;

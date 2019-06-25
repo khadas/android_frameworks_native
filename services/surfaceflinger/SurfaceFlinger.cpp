@@ -2506,7 +2506,19 @@ sp<DisplayDevice> SurfaceFlinger::setupNewDisplayDeviceInternal(
         hw->setActiveConfig(getHwComposer().getActiveConfigIndex(state.type));
     }
     hw->setLayerStack(state.layerStack);
-    hw->setProjection(state.orientation, state.viewport, state.frame);
+
+    if(displayInstallOrientation == DisplayState::eOrientation90 ||
+       displayInstallOrientation == DisplayState::eOrientation270){
+        /*ALOGE("rk-debug[%s %d] name:%s displayInstallOrientation:%d \n",
+                __FUNCTION__,__LINE__,state.displayName.c_str(),displayInstallOrientation);*/
+        hw->setProjection(state.orientation, Rect(hw->getHeight(),
+                          hw->getWidth()), Rect(hw->getHeight(), hw->getWidth()));
+    }
+    else{
+        /*ALOGE("rk-debug[%s %d] name:%s displayInstallOrientation:%d \n",
+                __FUNCTION__,__LINE__,state.displayName.c_str(),displayInstallOrientation);*/
+        hw->setProjection(state.orientation, state.viewport, state.frame);
+    }
     hw->setDisplayName(state.displayName);
 
     return hw;

@@ -3219,6 +3219,9 @@ void KeyMouseInputMapper::sync(nsecs_t when) {
     if(strcmp(mKeyLock, "off") == 0) {
         return;
     }
+    bool buttonsChanged = currentButtonState != lastButtonState;
+    int32_t buttonsPressed = currentButtonState & ~lastButtonState;
+    int32_t buttonsReleased = lastButtonState & ~currentButtonState;
 
     float deltaX = mdeltax;
     float deltaY = mdeltay;
@@ -3262,24 +3265,72 @@ void KeyMouseInputMapper::sync(nsecs_t when) {
 		    policyFlags, lastButtonState, currentButtonState);
 
     // Send motion event.
-    if (downChanged) {
+    if (downChanged || buttonsChanged) {
         int32_t metaState = mContext->getGlobalMetaState();
+        int32_t buttonState = lastButtonState;
         int32_t motionEventAction;
         if (downChanged) {
             motionEventAction = down ? AMOTION_EVENT_ACTION_DOWN : AMOTION_EVENT_ACTION_UP;
-        } else  {
+        } else if (down || (mSource != AINPUT_SOURCE_MOUSE)) {
             motionEventAction = AMOTION_EVENT_ACTION_MOVE;
+        } else {
+            motionEventAction = AMOTION_EVENT_ACTION_HOVER_MOVE;
         }
-        NotifyMotionArgs args(when, getDeviceId(), mSource, 0,
-                motionEventAction, 0, 0, metaState,currentButtonState,
+        if (buttonsReleased) {
+            BitSet32 released(buttonsReleased);
+            while (!released.isEmpty()) {
+                int32_t actionButton = BitSet32::valueForBit(released.clearFirstMarkedBit());
+                buttonState &= ~actionButton;
+                NotifyMotionArgs releaseArgs(when, getDeviceId(), mSource, policyFlags,
+                        AMOTION_EVENT_ACTION_BUTTON_RELEASE, actionButton, 0,
+                        metaState, buttonState, AMOTION_EVENT_EDGE_FLAG_NONE,
+                        displayId, /* deviceTimestamp */ 0, 1, &pointerProperties, &pointerCoords,
+                        1, 1, downTime);
+                getListener()->notifyMotion(&releaseArgs);
+            }
+        }
+
+        NotifyMotionArgs args(when, getDeviceId(), mSource, policyFlags,
+                motionEventAction, 0, 0, metaState, currentButtonState,
                 AMOTION_EVENT_EDGE_FLAG_NONE,
-                displayId,0, 1, &pointerProperties, &pointerCoords, 1, 1, downTime);
+                displayId, /* deviceTimestamp */ 0, 1, &pointerProperties, &pointerCoords,
+                1, 1, downTime);
        /* NotifyMotionArgs args(when, getDeviceId(), mSource, 0,
                 motionEventAction, 0, 0, metaState, AMOTION_EVENT_EDGE_FLAG_NONE, 0,
                 displayId,0, 1, &pointerProperties, &pointerCoords, 1, 1, downTime);*/
         getListener()->notifyMotion(&args);
 
+        if (buttonsPressed) {
+            BitSet32 pressed(buttonsPressed);
+            while (!pressed.isEmpty()) {
+                int32_t actionButton = BitSet32::valueForBit(pressed.clearFirstMarkedBit());
+                buttonState |= actionButton;
+                NotifyMotionArgs pressArgs(when, getDeviceId(), mSource, policyFlags,
+                        AMOTION_EVENT_ACTION_BUTTON_PRESS, actionButton, 0,
+                        metaState, buttonState, AMOTION_EVENT_EDGE_FLAG_NONE,
+                        displayId, /* deviceTimestamp */ 0, 1, &pointerProperties, &pointerCoords,
+                        1, 1, downTime);
+                getListener()->notifyMotion(&pressArgs);
+            }
+        }
+
+        ALOG_ASSERT(buttonState == currentButtonState);
+
+        // Send hover move after UP to tell the application that the mouse is hovering now.
+        if (motionEventAction == AMOTION_EVENT_ACTION_UP
+                && (mSource == AINPUT_SOURCE_MOUSE)) {
+            NotifyMotionArgs hoverArgs(when, getDeviceId(), mSource, policyFlags,
+                    AMOTION_EVENT_ACTION_HOVER_MOVE, 0, 0,
+                    metaState, currentButtonState, AMOTION_EVENT_EDGE_FLAG_NONE,
+                    displayId, /* deviceTimestamp */ 0, 1, &pointerProperties, &pointerCoords,
+                    1, 1, downTime);
+            getListener()->notifyMotion(&hoverArgs);
+        }
+
     }
+    // Synthesize key up from buttons if needed.
+    synthesizeButtonKeys(getContext(), AKEY_EVENT_ACTION_UP, when, getDeviceId(), mSource,
+            policyFlags, lastButtonState, currentButtonState);
 }
 
 int32_t KeyMouseInputMapper::getScanCodeState(uint32_t sourceMask, int32_t scanCode) {

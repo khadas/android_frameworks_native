@@ -319,6 +319,9 @@ Error Display::getActiveConfig(
 {
     ALOGV("[%" PRIu64 "] getActiveConfig", mId);
     hwc2_config_t configId = 0;
+#ifdef USE_AML_HW_ACTIVE_MODE
+    android::Mutex::Autolock autolock(mConfigLock);
+#endif
     auto intError = mComposer.getActiveConfig(mId, &configId);
     auto error = static_cast<Error>(intError);
 
@@ -344,6 +347,9 @@ Error Display::getActiveConfig(
 Error Display::getActiveConfigIndex(int* outIndex) const {
     ALOGV("[%" PRIu64 "] getActiveConfigIndex", mId);
     hwc2_config_t configId = 0;
+#ifdef USE_AML_HW_ACTIVE_MODE
+    android::Mutex::Autolock autolock(mConfigLock);
+#endif
     auto intError = mComposer.getActiveConfig(mId, &configId);
     auto error = static_cast<Error>(intError);
 
@@ -455,37 +461,14 @@ Error Display::getDataspaceSaturationMatrix(Dataspace dataspace, android::mat4* 
 
 std::vector<std::shared_ptr<const Display::Config>> Display::getConfigs() const
 {
-#ifdef USE_AML_HW_ACTIVE_MODE
-    ALOGV("[%" PRIu64 "] getConfigs", mId);
-    hwc2_config_t activeConfigId = 0;
-    auto intError = mComposer.getActiveConfig(mId, &activeConfigId);
-    auto error = static_cast<Error>(intError);
-    if (error != Error::None) {
-        ALOGE("[%" PRIu64 "] mGetActiveConfig error", mId);
-    }
-    if (mConfigs.count(activeConfigId) == 0) {
-        ALOGE("[%" PRIu64 "] getActiveConfig returned unknown config %u", mId,
-                activeConfigId);
-    }
-#endif
-
     std::vector<std::shared_ptr<const Config>> configs;
-    for (const auto& element : mConfigs) {
 #ifdef USE_AML_HW_ACTIVE_MODE
-    // Skip active configid, need to add to the front of configs.
-        if (element.first == activeConfigId) {
-            continue;
-        }
+    android::Mutex::Autolock autolock(mConfigLock);
 #endif
+    for (const auto& element : mConfigs) {
         configs.emplace_back(element.second);
     }
 
-#ifdef USE_AML_HW_ACTIVE_MODE
-    if (mConfigs.count(activeConfigId) != 0) {
-        // Add active config to the front of configs.
-        configs.emplace(configs.begin(), mConfigs.at(activeConfigId));
-    }
-#endif
     return configs;
 }
 
@@ -721,6 +704,19 @@ void Display::setConnected(bool connected) {
     mIsConnected = connected;
 }
 
+#ifdef USE_AML_HW_ACTIVE_MODE
+void Display::syncConfigs() {
+    /* During hotplugs, there is a window where plaform and surfaceflinger may
+     * not be in sync. During this time, if resyncToHardwareVsync() call happens,
+     * it will call getActiveConfig() which will return an invalid config causing
+     * a SF crash. This call is provided to ensure that platform and SF are always
+     * in sync, and SF never gets an invalid config in the getActiveConfig() call
+     * or getActiveConfigIndex() calls.
+     */
+    loadConfigs();
+}
+#endif
+
 int32_t Display::getAttribute(hwc2_config_t configId, Attribute attribute)
 {
     int32_t value = 0;
@@ -754,6 +750,10 @@ void Display::loadConfig(hwc2_config_t configId)
 void Display::loadConfigs()
 {
     ALOGV("[%" PRIu64 "] loadConfigs", mId);
+
+#ifdef USE_AML_HW_ACTIVE_MODE
+    android::Mutex::Autolock autolock(mConfigLock);
+#endif
 
     std::vector<Hwc2::Config> configIds;
     auto intError = mComposer.getDisplayConfigs(mId, &configIds);

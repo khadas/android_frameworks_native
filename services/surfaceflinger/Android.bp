@@ -73,6 +73,12 @@ cc_defaults {
         "libhidltransport",
         "libhwbinder",
     ],
+
+    product_variables: {
+        hwc_enable_real_mode: {
+            cflags: ["-DUSE_AML_REAL_MODE"],
+        },
+    },
 }
 
 cc_library_headers {

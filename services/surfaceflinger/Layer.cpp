@@ -59,6 +59,11 @@
 #include <mutex>
 #include "LayerProtoHelper.h"
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+#include "OmxUtil.h"
+#include <am_gralloc_ext.h>
+#endif
+
 #define DEBUG_RESIZE 0
 
 namespace android {
@@ -1241,6 +1246,13 @@ bool Layer::setAlpha(float alpha) {
     if (mCurrentState.color.a == alpha) return false;
     mCurrentState.sequence++;
     mCurrentState.color.a = alpha;
+#ifdef REDUCE_VIDEO_WORKLOAD
+    if (getBE().compositionInfo.mBuffer &&
+        am_gralloc_is_omx_metadata_producer(getBE().compositionInfo.mBuffer->getUsage())) {
+        mCurrentState.color.a = 1.0_hf;
+    }
+#endif
+
     mCurrentState.modified = true;
     setTransactionFlags(eTransactionNeeded);
     return true;
@@ -1886,6 +1898,13 @@ Transform Layer::getTransform() const {
 
 half Layer::getAlpha() const {
     const auto& p = mDrawingParent.promote();
+
+#ifdef REDUCE_VIDEO_WORKLOAD
+        if (getBE().compositionInfo.mBuffer &&
+            am_gralloc_is_omx_metadata_producer(getBE().compositionInfo.mBuffer->getUsage())) {
+            return 1.0_hf;
+        }
+#endif
 
     half parentAlpha = (p != nullptr) ? p->getAlpha() : 1.0_hf;
     return parentAlpha * getDrawingState().color.a;

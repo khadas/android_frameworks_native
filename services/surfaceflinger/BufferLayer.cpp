@@ -934,6 +934,13 @@ bool BufferLayer::isOpaque(const Layer::State& s) const {
         return false;
     }
 
+#ifdef REDUCE_VIDEO_WORKLOAD
+    if (getBE().compositionInfo.mBuffer &&
+        am_gralloc_is_omx_metadata_producer(getBE().compositionInfo.mBuffer->getUsage())) {
+        return true;
+    }
+#endif
+
     // if the layer has the opaque flag, then we're always opaque,
     // otherwise we use the current buffer's format.
     return ((s.flags & layer_state_t::eLayerOpaque) != 0) || mCurrentOpacity;

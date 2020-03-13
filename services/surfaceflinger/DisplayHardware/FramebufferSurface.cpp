@@ -75,9 +75,15 @@ FramebufferSurface::FramebufferSurface(HWComposer& hwc, int disp,
 
     mName = "FramebufferSurface";
     mConsumer->setConsumerName(mName);
-    mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB |
-                                       GRALLOC_USAGE_HW_RENDER |
-                                       GRALLOC_USAGE_HW_COMPOSER);
+    if (disp > 0)
+        mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB |
+                                           GRALLOC_USAGE_HW_RENDER |
+                                           GRALLOC_USAGE_EXTERNAL_DISP |
+                                           GRALLOC_USAGE_HW_COMPOSER);
+    else
+        mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB |
+                                           GRALLOC_USAGE_HW_RENDER |
+                                           GRALLOC_USAGE_HW_COMPOSER);
 
 #ifdef USE_AML_REAL_MODE
     int width = getInt32< ISurfaceFlingerConfigs,

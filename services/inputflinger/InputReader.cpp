@@ -2403,16 +2403,16 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
     property_set("sys.ID.mID",mID);
 
     if (down) {
-        if (keyCode == AKEYCODE_PROFILE_SWITCH) {
-              char targetProduct[PROPERTY_VALUE_MAX] = "";
-              property_get("ro.target.product", targetProduct, "");
-              if (strcmp(targetProduct, "box") == 0) {
+        if (keyCode == AKEYCODE_TV_KEYMOUSE_MODE_SWITCH) {
+              //char targetProduct[PROPERTY_VALUE_MAX] = "";
+              //property_get("ro.target.product", targetProduct, "");
+              //if (strcmp(targetProduct, "box") == 0) {
                  if (strcmp(mKeyMouseState, "on")==0) {
                      property_set("sys.KeyMouse.mKeyMouseState", "off");
                  } else if (strcmp(mKeyMouseState,"off")==0) {
                            property_set("sys.KeyMouse.mKeyMouseState","on");
                  }
-              }
+              //}
         }
         // Rotate key codes according to orientation if needed.
         if (mParameters.orientationAware) {
@@ -2487,13 +2487,13 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
     //
     if (strcmp(mKeyMouseState, "on") == 0) {
         if(keyCode == AKEYCODE_DPAD_LEFT) {
-            keyCode = AKEYCODE_SYSTEM_NAVIGATION_LEFT;
+            keyCode = AKEYCODE_TV_KEYMOUSE_LEFT;
         } else if (keyCode == AKEYCODE_DPAD_RIGHT) {
-            keyCode = AKEYCODE_SYSTEM_NAVIGATION_RIGHT;
+            keyCode = AKEYCODE_TV_KEYMOUSE_RIGHT;
         } else if (keyCode == AKEYCODE_DPAD_UP) {
-            keyCode = AKEYCODE_SYSTEM_NAVIGATION_UP;
+            keyCode = AKEYCODE_TV_KEYMOUSE_UP;
         } else if (keyCode == AKEYCODE_DPAD_DOWN) {
-            keyCode = AKEYCODE_SYSTEM_NAVIGATION_DOWN;
+            keyCode = AKEYCODE_TV_KEYMOUSE_DOWN;
         }
     }
 

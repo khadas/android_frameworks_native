@@ -1298,11 +1298,11 @@ status_t EventHub::openDeviceLocked(const char* devicePath) {
         device->classes |= INPUT_DEVICE_CLASS_KEYBOARD;
 
         // for infrare simulate mouse.
-        char targetProduct[PROPERTY_VALUE_MAX] = "";
-        property_get("ro.target.product", targetProduct, "");
-        if (strcmp(targetProduct, "box") == 0) {
+        //char targetProduct[PROPERTY_VALUE_MAX] = "";
+        //property_get("ro.target.product", targetProduct, "");
+        //if (strcmp(targetProduct, "box") == 0) {
            device->classes |= INPUT_DEVICE_CLASS_KEYMOUSE;
-        }
+        //}
     }
 
     // See if this is a cursor device such as a trackball or mouse.

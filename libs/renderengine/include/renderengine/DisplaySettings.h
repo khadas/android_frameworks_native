@@ -60,6 +60,9 @@ struct DisplaySettings {
 
     // The orientation of the physical display.
     uint32_t orientation = ui::Transform::ROT_0;
+
+    // DisplayDevice::mDisplayInstallOrientation
+    int displayInstallOrientation = 0; // DisplayState::eOrientationDefault, ... or ISurfaceComposer::eRotateNone, ...
 };
 
 } // namespace renderengine

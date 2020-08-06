@@ -31,6 +31,7 @@
 #include <cutils/compiler.h>
 #include <cutils/properties.h>
 #include <gui/DebugEGLImageTracker.h>
+#include <gui/ISurfaceComposer.h>
 #include <renderengine/Mesh.h>
 #include <renderengine/Texture.h>
 #include <renderengine/private/Description.h>
@@ -825,23 +826,53 @@ void GLESRenderEngine::handleRoundedCorners(const DisplaySettings& display,
     bounds = FloatRect(leftTopCoordinateInBuffer[0], leftTopCoordinateInBuffer[1],
                        rightBottomCoordinateInBuffer[0], rightBottomCoordinateInBuffer[1]);
 
+    /*-------------------------------------------------------*/
+
     // Secondly, if the display is rotated, we need to undo the rotation on coordination and
     // align the (left, top) and (right, bottom) coordination with the device coordination
     // space.
-    switch (display.orientation) {
+
+    ISurfaceComposer::Rotation orientationInRotation;
+
+    switch (display.orientation)
+    {
+        case ui::Transform::ROT_0:
+            orientationInRotation = ISurfaceComposer::eRotateNone;
+            break;
         case ui::Transform::ROT_90:
-            std::swap(bounds.left, bounds.right);
+            orientationInRotation = ISurfaceComposer::eRotate90;
             break;
         case ui::Transform::ROT_180:
+            orientationInRotation = ISurfaceComposer::eRotate180;
+            break;
+        case ui::Transform::ROT_270:
+            orientationInRotation = ISurfaceComposer::eRotate270;
+            break;
+        default:
+            ALOGE("unexpect 'display.orientation' : 0x%x", display.orientation);
+            orientationInRotation = ISurfaceComposer::eRotateNone;
+            break;
+    }
+
+    int finalOrientation = ( (int)orientationInRotation + display.displayInstallOrientation) % ( ISurfaceComposer::eRotate270 + 1);
+
+    switch (finalOrientation)
+    {
+        case ISurfaceComposer::eRotate90:
+            std::swap(bounds.left, bounds.right);
+            break;
+        case ISurfaceComposer::eRotate180:
             std::swap(bounds.left, bounds.right);
             std::swap(bounds.top, bounds.bottom);
             break;
-        case ui::Transform::ROT_270:
+        case ISurfaceComposer::eRotate270:
             std::swap(bounds.top, bounds.bottom);
             break;
         default:
             break;
     }
+
+    /*-------------------------------------------------------*/
 
     // Finally, we cut the layer into 3 parts, with top and bottom parts having rounded corners
     // and the middle part without rounded corners.

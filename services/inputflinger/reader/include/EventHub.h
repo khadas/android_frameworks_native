@@ -136,6 +136,11 @@ enum class InputDeviceClass : uint32_t {
     /* The input device is a touchpad, requiring an on-screen cursor. */
     TOUCHPAD = 0x00010000,
 
+    //-----------------------rk code----------
+    /* The input device has a mouse. */
+    INPUT_DEVICE_CLASS_KEYMOUSE       = 0x00020000,
+    //----------------------------------------
+
     /* The input device is virtual (not a real device, not part of UI configuration). */
     VIRTUAL = 0x40000000,
 

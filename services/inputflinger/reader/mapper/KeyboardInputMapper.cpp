@@ -19,6 +19,9 @@
 // clang-format on
 
 #include "KeyboardInputMapper.h"
+//-----------------------rk code----------
+#include <cutils/properties.h>
+//----------------------------------------
 
 #include <ui/Rotation.h>
 
@@ -215,7 +218,29 @@ std::list<NotifyArgs> KeyboardInputMapper::processKey(nsecs_t when, nsecs_t read
 
     nsecs_t downTime = when;
     std::optional<size_t> keyDownIndex = findKeyDownIndex(scanCode);
+    //-----------------------rk code----------
+    // Support simulate mouse function.
+    if (policyFlags & POLICY_FLAG_GESTURE) {
+        out += getDeviceContext().cancelTouch(when, readTime);
+    }
+    char mKeyMouseState[PROPERTY_VALUE_MAX] = "";
+    property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+    char mID[PROPERTY_VALUE_MAX] = "";
+    sprintf(mID,"%d",getDeviceId());
+    property_set("sys.ID.mID",mID);
     if (down) {
+        if (keyCode == AKEYCODE_PROFILE_SWITCH) {
+            char targetProduct[PROPERTY_VALUE_MAX] = "";
+            property_get("ro.target.product", targetProduct, "");
+            if (strcmp(targetProduct, "box") == 0) {
+                if (strcmp(mKeyMouseState, "on")==0) {
+                    property_set("sys.KeyMouse.mKeyMouseState", "off");
+                } else if (strcmp(mKeyMouseState,"off")==0) {
+                    property_set("sys.KeyMouse.mKeyMouseState","on");
+                }
+            }
+        }
+     //----------------------------------------
         // Rotate key codes according to orientation if needed.
         if (mParameters.orientationAware) {
             keyCode = rotateKeyCode(keyCode, getOrientation());
@@ -280,12 +305,30 @@ std::list<NotifyArgs> KeyboardInputMapper::processKey(nsecs_t when, nsecs_t read
         policyFlags |= POLICY_FLAG_DISABLE_KEY_REPEAT;
     }
 
+ //-----------------------rk code----------
+    if (down && !isMetaKey(keyCode)) {
+        getContext()->fadePointer();
+    }
+    //
+    if (strcmp(mKeyMouseState, "on") == 0) {
+        if (keyCode == AKEYCODE_DPAD_LEFT) {
+            keyCode = AKEYCODE_SYSTEM_NAVIGATION_LEFT;
+        } else if (keyCode == AKEYCODE_DPAD_RIGHT) {
+            keyCode = AKEYCODE_SYSTEM_NAVIGATION_RIGHT;
+        } else if (keyCode == AKEYCODE_DPAD_UP) {
+            keyCode = AKEYCODE_SYSTEM_NAVIGATION_UP;
+        } else if (keyCode == AKEYCODE_DPAD_DOWN) {
+            keyCode = AKEYCODE_SYSTEM_NAVIGATION_DOWN;
+        }
+    }
+//----------------------------------------
     out.emplace_back(NotifyKeyArgs(getContext()->getNextId(), when, readTime, getDeviceId(),
                                    mSource, getDisplayId(), policyFlags,
                                    down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP,
                                    AKEY_EVENT_FLAG_FROM_SYSTEM, keyCode, scanCode, keyMetaState,
                                    downTime));
     return out;
+
 }
 
 std::optional<size_t> KeyboardInputMapper::findKeyDownIndex(int32_t scanCode) {

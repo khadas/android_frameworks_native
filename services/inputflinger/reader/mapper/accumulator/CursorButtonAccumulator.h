@@ -50,6 +50,9 @@ private:
     bool mBtnForward;
     bool mBtnExtra;
     bool mBtnTask;
+    //-----------------------rk code----------
+    bool mBtnOk;
+    //----------------------------------------
 
     void clearButtons();
 };

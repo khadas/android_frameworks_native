@@ -21,7 +21,13 @@
 //-----rk-code-------
 #include <cutils/properties.h>
 //--------------
+
 namespace android {
+
+//-----rk-code-------
+static const int KEYCODE_ENTER = 28;
+static const int KEYCODE_DPAD_CENTER = 232;
+//--------------
 
 CursorButtonAccumulator::CursorButtonAccumulator() {
     clearButtons();
@@ -36,6 +42,10 @@ void CursorButtonAccumulator::reset(const InputDeviceContext& deviceContext) {
     mBtnForward = deviceContext.isKeyPressed(BTN_FORWARD);
     mBtnExtra = deviceContext.isKeyPressed(BTN_EXTRA);
     mBtnTask = deviceContext.isKeyPressed(BTN_TASK);
+//-----rk-code-------
+    mBtnOk = deviceContext.isKeyPressed(KEYCODE_ENTER);
+    mBtnOk = deviceContext.isKeyPressed(KEYCODE_DPAD_CENTER);
+//--------------
 }
 
 void CursorButtonAccumulator::clearButtons() {
@@ -47,6 +57,9 @@ void CursorButtonAccumulator::clearButtons() {
     mBtnForward = 0;
     mBtnExtra = 0;
     mBtnTask = 0;
+//-----rk-code-------
+    mBtnOk = 0;
+//--------------
 }
 
 void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
@@ -76,6 +89,15 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
             case BTN_TASK:
                 mBtnTask = rawEvent->value;
                 break;
+//-----rk-code-------
+            case KEYCODE_ENTER:
+            case KEYCODE_DPAD_CENTER:
+                char mKeyMouseState[PROPERTY_VALUE_MAX] = {0};
+                property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+                if (strcmp(mKeyMouseState, "on") == 0)
+                    mBtnOk = rawEvent->value;
+                break;
+//--------------
         }
     }
 }
@@ -85,6 +107,15 @@ uint32_t CursorButtonAccumulator::getButtonState() const {
     if (mBtnLeft) {
         result |= AMOTION_EVENT_BUTTON_PRIMARY;
     }
+    //-----rk-code-------
+    if (mBtnOk) {
+       char mKeyMouseState[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+        if (strcmp(mKeyMouseState, "on") == 0) {
+         result |= AMOTION_EVENT_BUTTON_PRIMARY;
+        }
+    }
+    //--------------
     if (mBtnRight) {
 	//-----rk-code-------
         char targetProduct[PROPERTY_VALUE_MAX] = {0};

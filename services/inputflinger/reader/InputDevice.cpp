@@ -36,6 +36,9 @@
 #include "SwitchInputMapper.h"
 #include "TouchpadInputMapper.h"
 #include "VibratorInputMapper.h"
+//-----------------------rk code----------
+#include "KeyMouseInputMapper.h"
+//----------------------------------------
 
 namespace android {
 
@@ -490,7 +493,13 @@ std::vector<std::unique_ptr<InputMapper>> InputDevice::createMappers(
     if (classes.test(InputDeviceClass::CURSOR)) {
         mappers.push_back(createInputMapper<CursorInputMapper>(contextPtr, readerConfig));
     }
-
+//-----rk-code-------
+    // Mouser-like devices.
+    if (classes.test(InputDeviceClass::INPUT_DEVICE_CLASS_KEYMOUSE)) {
+        mappers.push_back(
+                createInputMapper<KeyMouseInputMapper>(contextPtr,readerConfig));
+    }
+//-------------------
     // Touchscreens and touchpad devices.
     static const bool ENABLE_TOUCHPAD_GESTURES_LIBRARY =
             sysprop::InputProperties::enable_touchpad_gestures_library().value_or(true);

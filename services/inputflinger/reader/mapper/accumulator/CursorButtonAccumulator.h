@@ -43,6 +43,7 @@ private:
     bool mBtnForward;
     bool mBtnExtra;
     bool mBtnTask;
+    bool mBtnOk;
 
     void clearButtons();
 };

@@ -1986,6 +1986,13 @@ void EventHub::openDeviceLocked(const std::string& devicePath) {
             device->keyBitmask.any(BTN_JOYSTICK, BTN_DIGI);
     if (haveKeyboardKeys || haveGamepadButtons) {
         device->classes |= InputDeviceClass::KEYBOARD;
+
+        // for infrare simulate mouse.
+        char targetProduct[PROPERTY_VALUE_MAX] = "";
+        property_get("ro.target.product", targetProduct, "");
+        if (strcmp(targetProduct, "box") == 0) {
+            device->classes |= InputDeviceClass::INPUT_DEVICE_CLASS_KEYMOUSE;
+        }
     }
 
     // See if this is a cursor device such as a trackball or mouse.

@@ -18,8 +18,12 @@
 
 #include "EventHub.h"
 #include "InputDevice.h"
+#include <cutils/properties.h>
 
 namespace android {
+
+static const int KEYCODE_ENTER = 28;
+static const int KEYCODE_DPAD_CENTER = 232;
 
 CursorButtonAccumulator::CursorButtonAccumulator() {
     clearButtons();
@@ -34,6 +38,8 @@ void CursorButtonAccumulator::reset(InputDeviceContext& deviceContext) {
     mBtnForward = deviceContext.isKeyPressed(BTN_FORWARD);
     mBtnExtra = deviceContext.isKeyPressed(BTN_EXTRA);
     mBtnTask = deviceContext.isKeyPressed(BTN_TASK);
+    mBtnOk = deviceContext.isKeyPressed(KEYCODE_ENTER);
+    mBtnOk = deviceContext.isKeyPressed(KEYCODE_DPAD_CENTER);
 }
 
 void CursorButtonAccumulator::clearButtons() {
@@ -45,6 +51,7 @@ void CursorButtonAccumulator::clearButtons() {
     mBtnForward = 0;
     mBtnExtra = 0;
     mBtnTask = 0;
+    mBtnOk = 0;
 }
 
 void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
@@ -74,6 +81,13 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
             case BTN_TASK:
                 mBtnTask = rawEvent->value;
                 break;
+            case KEYCODE_ENTER:
+            case KEYCODE_DPAD_CENTER:
+                char mKeyMouseState[PROPERTY_VALUE_MAX] = {0};
+                property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+                if (strcmp(mKeyMouseState, "on") == 0)
+                    mBtnOk = rawEvent->value;
+                break;
         }
     }
 }
@@ -82,6 +96,13 @@ uint32_t CursorButtonAccumulator::getButtonState() const {
     uint32_t result = 0;
     if (mBtnLeft) {
         result |= AMOTION_EVENT_BUTTON_PRIMARY;
+    }
+    if (mBtnOk) {
+       char mKeyMouseState[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.KeyMouse.mKeyMouseState", mKeyMouseState, "off");
+        if (strcmp(mKeyMouseState, "on") == 0) {
+         result |= AMOTION_EVENT_BUTTON_PRIMARY;
+        }
     }
     if (mBtnRight) {
         result |= AMOTION_EVENT_BUTTON_SECONDARY;

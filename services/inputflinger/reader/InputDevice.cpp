@@ -33,6 +33,7 @@
 #include "SingleTouchInputMapper.h"
 #include "SwitchInputMapper.h"
 #include "VibratorInputMapper.h"
+#include "KeyMouseInputMapper.h"
 
 namespace android {
 
@@ -199,6 +200,12 @@ void InputDevice::addEventHubDevice(int32_t eventHubId, bool populateMappers) {
     // Cursor-like devices.
     if (classes.test(InputDeviceClass::CURSOR)) {
         mappers.push_back(std::make_unique<CursorInputMapper>(*contextPtr));
+    }
+
+    // Mouser-like devices.
+    if (classes.test(InputDeviceClass::INPUT_DEVICE_CLASS_KEYMOUSE)) {
+        mappers.push_back(
+                std::make_unique<KeyMouseInputMapper>(*contextPtr));
     }
 
     // Touchscreens and touchpad devices.

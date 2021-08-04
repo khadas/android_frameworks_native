@@ -83,6 +83,8 @@
 #include <unordered_set>
 #include <utility>
 
+#define RK_FPS                 (1)
+
 using namespace android::surfaceflinger;
 
 namespace android {
@@ -800,6 +802,11 @@ private:
     // Returns whether the transaction actually modified any state
     bool handleMessageTransaction();
 
+#if RK_FPS
+    //add by rk for fps
+    void debugShowFPS() const;
+#endif
+
     // Handle the REFRESH message queue event, sending the current frame down to RenderEngine and
     // the Composer HAL for presentation
     void onMessageRefresh();
@@ -1352,6 +1359,11 @@ private:
 
     // Static screen stats
     bool mHasPoweredOff = false;
+
+#if RK_FPS
+    //add by rk for fps
+    int mDebugFPS;
+#endif
 
     std::atomic<size_t> mNumLayers = 0;
 

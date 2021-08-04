@@ -874,10 +874,10 @@ bool HWComposer::shouldIgnoreHotplugConnect(hal::HWDisplayId hwcDisplayId,
         return true;
     }
 
-    if (!mHasMultiDisplaySupport && mInternalHwcDisplayId && mExternalHwcDisplayId) {
-        ALOGE("Ignoring connection of tertiary display %" PRIu64, hwcDisplayId);
-        return true;
-    }
+//    if (!mHasMultiDisplaySupport && mInternalHwcDisplayId && mExternalHwcDisplayId) {
+//        ALOGE("Ignoring connection of tertiary display %" PRIu64, hwcDisplayId);
+//        return true;
+//    }
 
     return false;
 }
@@ -916,6 +916,7 @@ std::optional<DisplayIdentificationInfo> HWComposer::onHotplugConnect(
 
         info = [this, hwcDisplayId, &port, &data, hasDisplayIdentificationData] {
             const bool isPrimary = !mInternalHwcDisplayId;
+            const bool isExternal = !mExternalHwcDisplayId;
             if (mHasMultiDisplaySupport) {
                 if (const auto info = parseDisplayIdentificationData(port, data)) {
                     return *info;
@@ -924,7 +925,14 @@ std::optional<DisplayIdentificationInfo> HWComposer::onHotplugConnect(
             } else {
                 ALOGW_IF(hasDisplayIdentificationData,
                          "Ignoring identification data for display %" PRIu64, hwcDisplayId);
-                port = isPrimary ? LEGACY_DISPLAY_TYPE_PRIMARY : LEGACY_DISPLAY_TYPE_EXTERNAL;
+                ALOGW(
+                         "Ignoring identification data for display %" PRIu64, hwcDisplayId);
+                if(isPrimary)
+                  port = LEGACY_DISPLAY_TYPE_PRIMARY;
+                else if(isExternal)
+                  port = LEGACY_DISPLAY_TYPE_EXTERNAL;
+                else
+                  port = LEGACY_DISPLAY_TYPE_THREE;
             }
 
             return DisplayIdentificationInfo{.id = PhysicalDisplayId::fromPort(port),

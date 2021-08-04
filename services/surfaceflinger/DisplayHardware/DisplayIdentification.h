@@ -28,6 +28,7 @@
 
 #define LEGACY_DISPLAY_TYPE_PRIMARY 0
 #define LEGACY_DISPLAY_TYPE_EXTERNAL 1
+#define LEGACY_DISPLAY_TYPE_THREE 2
 
 namespace android {
 

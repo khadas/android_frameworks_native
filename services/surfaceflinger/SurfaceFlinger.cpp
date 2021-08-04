@@ -2919,9 +2919,16 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
     }
 
     if (const auto display = getDisplayDeviceLocked(displayToken)) {
+
         if (currentState.layerStack != drawingState.layerStack) {
             display->setLayerStack(currentState.layerStack);
         }
+
+        if (currentState.width != drawingState.width ||
+            currentState.height != drawingState.height) {
+            display->setDisplaySize(currentState.width, currentState.height);
+        }
+
         if ((currentState.orientation != drawingState.orientation) ||
             (currentState.layerStackSpaceRect != drawingState.layerStackSpaceRect) ||
             (currentState.orientedDisplaySpaceRect != drawingState.orientedDisplaySpaceRect)) {
@@ -2933,8 +2940,6 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
         }
         if (currentState.width != drawingState.width ||
             currentState.height != drawingState.height) {
-            display->setDisplaySize(currentState.width, currentState.height);
-
             if (display->isPrimary()) {
                 mScheduler->onPrimaryDisplayAreaChanged(currentState.width * currentState.height);
             }

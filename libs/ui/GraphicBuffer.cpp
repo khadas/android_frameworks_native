@@ -165,6 +165,10 @@ status_t GraphicBuffer::reallocate(uint32_t inWidth, uint32_t inHeight,
     return initWithSize(inWidth, inHeight, inFormat, inLayerCount, inUsage, "[Reallocation]");
 }
 
+// MALI_GRALLOC_USAGE_NO_AFBC 是 arm_gralloc 扩展的 私有的 usage_bit_flag,
+// 定义在 hardware/rockchip/libgralloc/bifrost/src/mali_gralloc_usages.h 中
+#define GRALLOC_USAGE_PRIVATE_1 1ULL << 29
+#define MALI_GRALLOC_USAGE_NO_AFBC GRALLOC_USAGE_PRIVATE_1
 bool GraphicBuffer::needsReallocation(uint32_t inWidth, uint32_t inHeight,
         PixelFormat inFormat, uint32_t inLayerCount, uint64_t inUsage)
 {
@@ -172,7 +176,12 @@ bool GraphicBuffer::needsReallocation(uint32_t inWidth, uint32_t inHeight,
     if (static_cast<int>(inHeight) != height) return true;
     if (inFormat != format) return true;
     if (inLayerCount != layerCount) return true;
-    if ((usage & inUsage) != inUsage) return true;
+    if ((inUsage | usage) & MALI_GRALLOC_USAGE_NO_AFBC){
+        if( usage != inUsage)
+            return true;
+    }else if ((usage & inUsage) != inUsage) {
+        return true;
+    }
     if ((usage & USAGE_PROTECTED) != (inUsage & USAGE_PROTECTED)) return true;
     return false;
 }

@@ -197,6 +197,12 @@ std::shared_ptr<renderengine::ExternalTexture> RenderSurface::dequeueBuffer(
     return mTexture;
 }
 
+int RenderSurface::perform(int operation, uint64_t usage) {
+    ALOGV("RenderSurface::perform operation = %d, usage=%" PRIx64 ,operation,usage);
+    int result = mNativeWindow->perform(mNativeWindow.get(),operation,usage);  //0x10001a00
+    return result;
+}
+
 void RenderSurface::queueBuffer(base::unique_fd readyFence) {
     auto& state = mDisplay.getState();
 

@@ -56,6 +56,9 @@ struct OutputCompositionState {
     // If true, the client target should be flipped when performing client composition
     bool flipClientTarget{false};
 
+    // RK: If true, the client target should be used afbc format
+    bool useNoAfbcClientTarget{false};
+
     // If true, the current frame reused the buffer from a previous client composition
     bool reusedClientComposition{false};
 

@@ -294,6 +294,10 @@ void Display::applyDisplayRequests(const DisplayRequests& displayRequests) {
     state.flipClientTarget = (static_cast<uint32_t>(displayRequests) &
                               static_cast<uint32_t>(hal::DisplayRequest::FLIP_CLIENT_TARGET)) != 0;
     // Note: HWC2::DisplayRequest::WriteClientTargetToOutput is currently ignored.
+
+    // RK: Reuse FLIP_CLIENT_TARGET definition to implement FramebufferSurface feature.
+    state.useNoAfbcClientTarget = (static_cast<uint32_t>(displayRequests) &
+                              static_cast<uint32_t>(hal::DisplayRequest::FLIP_CLIENT_TARGET)) != 0;
 }
 
 void Display::applyLayerRequestsToLayers(const LayerRequests& layerRequests) {

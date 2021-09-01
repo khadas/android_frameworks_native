@@ -7,6 +7,27 @@ package {
     default_applicable_licenses: ["frameworks_native_license"],
 }
 
+bootstrap_go_package {
+    name: "soong-libsurfaceflinger",
+    pkgPath: "android/soong/libsurfaceflinger",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+          "Android.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+cc_libsurfaceflinger{
+  name: "cc_libsurfaceflinger_defaults"
+}
+
 cc_defaults {
     name: "surfaceflinger_defaults",
     cflags: [
@@ -26,6 +47,7 @@ cc_defaults {
     defaults: [
         "surfaceflinger_defaults",
         "skia_renderengine_deps",
+        "cc_libsurfaceflinger_defaults",
     ],
     cflags: [
         "-DLOG_TAG=\"SurfaceFlinger\"",

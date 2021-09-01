@@ -118,6 +118,11 @@ public:
                  void(const Region&, std::vector<LayerFE::LayerSettings>&));
     MOCK_METHOD1(setExpensiveRenderingExpected, void(bool));
     MOCK_METHOD1(cacheClientCompositionRequests, void(uint32_t));
+
+    /* For HWC2 adpter to HWC1 */
+    MOCK_METHOD1(updateInfoForHwc2On1Adapter, void(const compositionengine::CompositionRefreshArgs&));
+    MOCK_METHOD1(presentForHwc2On1Adapter, void(const compositionengine::CompositionRefreshArgs&));
+    MOCK_METHOD1(postBufferForHwc2On1Adapter, void(const compositionengine::CompositionRefreshArgs&));
 };
 
 } // namespace android::compositionengine::mock

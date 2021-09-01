@@ -7,9 +7,29 @@ package {
     default_applicable_licenses: ["frameworks_native_license"],
 }
 
+bootstrap_go_package {
+    name: "soong-libcompositionengine",
+    pkgPath: "android/soong/libcompositionengine",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+          "Android.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+cc_libcompositionengine {
+    name: "cc_libcompositionengine_defaults"
+}
+
 cc_defaults {
     name: "libcompositionengine_defaults",
-    defaults: ["surfaceflinger_defaults"],
+    defaults: ["surfaceflinger_defaults", "cc_libcompositionengine_defaults"],
     cflags: [
         "-DLOG_TAG=\"CompositionEngine\"",
         "-DATRACE_TAG=ATRACE_TAG_GRAPHICS",

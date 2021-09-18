@@ -2537,6 +2537,31 @@ static bool canBeObscuredBy(const sp<InputWindowHandle>& windowHandle,
     return true;
 }
 
+static bool isWhiteListWindow(const InputWindowInfo* first, const InputWindowInfo* second,
+        const std::vector<sp<InputWindowHandle>>& windowHandles) {
+    if (first == nullptr) {
+        return false;
+    }
+    if (second == nullptr || strcmp("", second->packageName.c_str()) != 0
+            /*|| 1013 != second->ownerUid*/) {
+        return false;
+    }
+
+    for (const sp<InputWindowHandle>& otherHandle : windowHandles) {
+        const InputWindowInfo* info = otherHandle->getInfo();
+        if (info == nullptr) {
+			continue;
+	    }
+        //ALOGW("isWhiteListWindow %s/%d/%s", otherHandle->getName().c_str(),
+        //        info->ownerUid, info->packageName.c_str());
+        // bbq-wrapper#0/1013/  SubtitleSurface#0/1013/
+        if (0 == strncmp("SubtitleSurface", otherHandle->getName().c_str(), 15)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Returns touch occlusion information in the form of TouchOcclusionInfo. To check if the touch is
  * untrusted, one should check:
@@ -2579,7 +2604,10 @@ InputDispatcher::TouchOcclusionInfo InputDispatcher::computeTouchOcclusionInfoLo
             // we perform the checks below to see if the touch can be propagated or not based on the
             // window's touch occlusion mode
             if (otherInfo->touchOcclusionMode == TouchOcclusionMode::BLOCK_UNTRUSTED) {
-                info.hasBlockingOcclusion = true;
+                if (isWhiteListWindow(windowInfo, otherInfo, windowHandles)) {
+                } else {
+                    info.hasBlockingOcclusion = true;
+                }
                 info.obscuringUid = otherInfo->ownerUid;
                 info.obscuringPackage = otherInfo->packageName;
                 break;

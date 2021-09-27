@@ -39,6 +39,10 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cflags = append(cflags,"-DUSE_HWC2ON1ADAPTER=1")
     }
 
+    if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk3399")) {
+        cflags = append(cflags,"-DRK_NV12_10_to_P010_BY_NEON=1")
+    }
+
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_RK_GRALLOC_VERSION"),"4") ) {
         cflags = append(cflags,"-DUSE_GRALLOC_4=1")
     }

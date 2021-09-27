@@ -140,6 +140,101 @@ static constexpr mat4 inverseOrientation(uint32_t transform) {
     return inverse(tr);
 }
 
+#if RK_NV12_10_to_P010_BY_NEON
+
+#define HAL_PIXEL_FORMAT_YCrCb_NV12 0x15
+#define HAL_PIXEL_FORMAT_YCrCb_NV12_10 0x17
+//#define HAL_PIXEL_FORMAT_YCBCR_P010 0x36
+
+
+//sp<GraphicBuffer> dstBuffer;
+#define dstBufferMax  2
+#define dstBufferFormat  HAL_PIXEL_FORMAT_YCBCR_P010  //HAL_PIXEL_FORMAT_YCrCb_NV12_10
+#define dstBufferUsage  GraphicBuffer::USAGE_HW_TEXTURE
+
+
+sp<GraphicBuffer> dstBufferCache[dstBufferMax];
+
+#include <dlfcn.h>
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+#define RK_XXX_PATH         "/system/lib64/librockchipxxx.so"
+typedef void (*__rockchipxxx)(u8 *src, u8 *dst, int w, int h, int srcStride, int dstStride, int area);
+
+void memcpy_to_p010(void * src_vaddr, void *dst_vaddr,int w,int h)
+{
+    static void* dso = NULL;
+    static __rockchipxxx rockchipxxx = NULL;
+
+    if(dso == NULL)
+    dso = dlopen(RK_XXX_PATH, RTLD_NOW | RTLD_LOCAL);
+    if (dso == 0) {
+        ALOGE("nv12_10: can't not find %s ! error=%s \n",RK_XXX_PATH,dlerror());
+        return ;
+    }
+
+    if(rockchipxxx == NULL)
+        rockchipxxx = (__rockchipxxx)dlsym(dso, "_Z11rockchipxxxPhS_iiiii");
+    if(rockchipxxx == NULL)
+    {
+        ALOGE("nv12_10: can't not find target function in %s ! \n",RK_XXX_PATH);
+        dlclose(dso);
+        return ;
+    }
+
+    const int dstPixelByte = 2;  //P010_PixelByte = 2
+    rockchipxxx((u8*)src_vaddr, (u8*)dst_vaddr, w, h, (w*1.25+64), w*dstPixelByte, 0);
+
+
+}
+
+
+
+const sp<GraphicBuffer> & compatible_rk_nv12_10_format(const sp<GraphicBuffer>& srcBuffer,int dstWidth,int dstHeight)
+{
+    ALOGV("nv12_10: srcBuffer w:%d h:%d dstWidth:%d dstHeight:%d\n",srcBuffer->getWidth(),srcBuffer->getHeight(),dstWidth,dstHeight);
+
+    static int yuvcnt;
+    int yuvIndex ;
+    yuvcnt ++;
+    yuvIndex = yuvcnt%dstBufferMax;
+
+    if((dstBufferCache[yuvIndex] != NULL) &&
+       (dstBufferCache[yuvIndex]->getWidth() != (uint32_t)dstWidth ||
+        dstBufferCache[yuvIndex]->getHeight() != (uint32_t)dstHeight))
+    {
+        dstBufferCache[yuvIndex] = NULL;
+    }
+    if(dstBufferCache[yuvIndex] == NULL)
+    {
+        ALOGV("nv12_10: sf new GraphicBuffer w:%d h:%d f:0x%x u:0x%x\n",dstWidth, dstHeight, dstBufferFormat, dstBufferUsage);
+        dstBufferCache[yuvIndex] = new GraphicBuffer(dstWidth, dstHeight, dstBufferFormat, dstBufferUsage);
+    }
+
+
+    void *src_vaddr;
+    void *dst_vaddr;
+    srcBuffer->lock(GRALLOC_USAGE_SW_READ_OFTEN, &src_vaddr);
+    dstBufferCache[yuvIndex]->lock(GRALLOC_USAGE_SW_WRITE_OFTEN|GRALLOC_USAGE_SW_READ_OFTEN, &dst_vaddr);
+    //memset(dst_vaddr,0xEB,3840*2160);
+    //memset(((char *)dst_vaddr)+3840*2160,0x80,3840*2160/2);
+
+    memcpy_to_p010(src_vaddr, dst_vaddr, dstWidth, dstHeight);
+
+    srcBuffer->unlock();
+    dstBufferCache[yuvIndex]->unlock();
+
+    return dstBufferCache[yuvIndex];
+
+}
+
+
+#endif
+
 std::optional<compositionengine::LayerFE::LayerSettings> BufferLayer::prepareClientComposition(
         compositionengine::LayerFE::ClientCompositionTargetSettings& targetSettings) {
     ATRACE_CALL();
@@ -197,7 +292,27 @@ std::optional<compositionengine::LayerFE::LayerSettings> BufferLayer::prepareCli
     }
 
     const State& s(getDrawingState());
+
+#if RK_NV12_10_to_P010_BY_NEON
+    if(mBufferInfo.mBuffer && (mBufferInfo.mBuffer)->getBuffer()->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10)
+    {
+        ALOGV("nv12_10: layer name:%s f:0x%x\n",layer.name.c_str(),(mBufferInfo.mBuffer)->getBuffer()->getPixelFormat());
+
+        sp<GraphicBuffer> dstGraphicBuffer = compatible_rk_nv12_10_format((mBufferInfo.mBuffer)->getBuffer(),
+                                                    mBufferInfo.mCrop.getWidth(),mBufferInfo.mCrop.getHeight());
+
+        std::shared_ptr<renderengine::ExternalTexture> mmBuffer ;
+        mmBuffer= std::make_shared<renderengine::ExternalTexture>(dstGraphicBuffer,
+                            mFlinger->getCompositionEngine().getRenderEngine(),
+                            renderengine::ExternalTexture::Usage::READABLE);
+        layer.source.buffer.buffer = mmBuffer;
+    }else{
+        layer.source.buffer.buffer = mBufferInfo.mBuffer;
+    }
+#else
     layer.source.buffer.buffer = mBufferInfo.mBuffer;
+#endif
+
     layer.source.buffer.isOpaque = isOpaque(s);
     layer.source.buffer.fence = mBufferInfo.mFence;
     layer.source.buffer.textureName = mTextureName;
@@ -262,7 +377,16 @@ std::optional<compositionengine::LayerFE::LayerSettings> BufferLayer::prepareCli
     }
 
     const Rect win{getBounds()};
+#if RK_NV12_10_to_P010_BY_NEON
+    float bufferWidth ;
+    if(mBufferInfo.mBuffer && (mBufferInfo.mBuffer)->getBuffer()->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10)
+        bufferWidth = mBufferInfo.mCrop.getWidth();
+    else
+        bufferWidth = getBufferSize(s).getWidth();
+#else
     float bufferWidth = getBufferSize(s).getWidth();
+#endif
+
     float bufferHeight = getBufferSize(s).getHeight();
 
     // BufferStateLayers can have a "buffer size" of [0, 0, -1, -1] when no display frame has

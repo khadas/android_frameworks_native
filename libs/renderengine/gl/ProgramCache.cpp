@@ -600,6 +600,26 @@ String8 ProgramCache::generateFragmentShader(const Key& needs) {
         fs << "uniform sampler2D sampler;";
     }
 
+    //----rk-code----
+    #ifdef RK_EBOOK
+    fs << "uniform vec3 levels;";
+    /// Gamma 校正
+    fs << "vec3 gammaCorrect(vec3 color, float gamma) {\n"
+        "return pow(color, vec3(1.0/gamma));\n"
+    "}\n"
+
+    /// 对 color 进行重新映射到 min, max 之间
+    "vec3 levelRange(vec3 color, float minInput, float maxInput) {\n"
+        "return min(\n"
+           "max(color - vec3(minInput), vec3(0.0)) / (vec3(maxInput) - vec3(minInput)), vec3(1.0));\n"
+    "}\n"
+
+    "vec3 finalLevels(vec3 color, float minInput, float gamma, float maxInput) {\n"
+        "return gammaCorrect(levelRange(color, minInput, maxInput), gamma);\n"
+    "}\n";
+    #endif
+    //---------------
+
     if (needs.hasTextureCoords()) {
         fs << "varying highp vec2 outTexCoords;";
     }
@@ -783,7 +803,13 @@ String8 ProgramCache::generateFragmentShader(const Key& needs) {
             fs << "gl_FragColor.a *= applyCornerRadius(outCropCoords);";
         }
     }
+    //----rk-code----
+    #ifdef RK_EBOOK
+    fs << "vec3 adjustedLevels = finalLevels(gl_FragColor.rgb, levels.x / 255.0, levels.y, levels.z / 255.0);";
 
+    fs << "gl_FragColor = vec4(adjustedLevels, gl_FragColor.a);";
+    #endif
+    //---------------
     fs << dedent << "}";
     return fs.getString();
 }

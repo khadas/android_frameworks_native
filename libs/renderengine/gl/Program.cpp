@@ -22,6 +22,11 @@
 #include <math/mat4.h>
 #include <utils/String8.h>
 #include "ProgramCache.h"
+//----rk-code----
+#ifdef RK_EBOOK
+#include <cutils/properties.h>
+#endif
+//---------------
 
 namespace android {
 namespace renderengine {
@@ -67,6 +72,11 @@ Program::Program(const ProgramCache::Key& /*needs*/, const char* vertex, const c
         mSamplerLoc = glGetUniformLocation(programId, "sampler");
         mColorLoc = glGetUniformLocation(programId, "color");
         mDisplayColorMatrixLoc = glGetUniformLocation(programId, "displayColorMatrix");
+        //----rk-code----
+        #ifdef RK_EBOOK
+        mGammaLoc = glGetUniformLocation(programId, "levels");
+        #endif
+        //---------------
         mDisplayMaxLuminanceLoc = glGetUniformLocation(programId, "displayMaxLuminance");
         mMaxMasteringLuminanceLoc = glGetUniformLocation(programId, "maxMasteringLuminance");
         mMaxContentLuminanceLoc = glGetUniformLocation(programId, "maxContentLuminance");
@@ -141,6 +151,27 @@ void Program::setUniforms(const Description& desc) {
     if (mDisplayColorMatrixLoc >= 0) {
         glUniformMatrix4fv(mDisplayColorMatrixLoc, 1, GL_FALSE, desc.displayColorMatrix.asArray());
     }
+    //----rk-code----
+    #ifdef RK_EBOOK
+    if (mGammaLoc >= 0) {
+        char valuex[125];
+        property_get("debug.sf.gamma.minInput", valuex, "0");
+        float gamma_x = atof(valuex);
+
+        char valuey[125];
+        property_get("debug.sf.gamma.gamma", valuey, "1.0");
+        float gamma_y = atof(valuey);
+
+        char valuez[125];
+        property_get("debug.sf.gamma.maxInput", valuez, "255");
+        float gamma_z = atof(valuez);
+
+
+        const float gamma[3] = {gamma_x, gamma_y, gamma_z};
+        glUniform3fv(mGammaLoc, 1, gamma);
+    }
+    #endif
+    //-------------
     if (mInputTransformMatrixLoc >= 0) {
         mat4 inputTransformMatrix = desc.inputTransformMatrix;
         glUniformMatrix4fv(mInputTransformMatrixLoc, 1, GL_FALSE, inputTransformMatrix.asArray());

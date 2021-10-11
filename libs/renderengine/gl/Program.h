@@ -93,7 +93,12 @@ private:
 
     /* location of the color uniform */
     GLint mColorLoc;
-
+    //----rk-code----
+    #ifdef RK_EBOOK
+    /* location of the gamma uniform */
+    GLint mGammaLoc;
+    #endif
+    //---------------
     /* location of display luminance uniform */
     GLint mDisplayMaxLuminanceLoc;
     /* location of max mastering luminance uniform */

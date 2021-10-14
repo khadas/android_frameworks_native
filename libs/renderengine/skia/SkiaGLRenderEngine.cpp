@@ -1310,17 +1310,17 @@ EGLContext SkiaGLRenderEngine::createEglContext(EGLDisplay display, EGLConfig co
         contextAttributes.push_back(EGL_CONTEXT_PRIORITY_LEVEL_IMG);
         switch (*contextPriority) {
             case ContextPriority::REALTIME:
-                contextAttributes.push_back(EGL_CONTEXT_PRIORITY_REALTIME_NV);
+                contextAttributes.push_back(EGL_CONTEXT_PRIORITY_MEDIUM_IMG);
                 break;
             case ContextPriority::MEDIUM:
                 contextAttributes.push_back(EGL_CONTEXT_PRIORITY_MEDIUM_IMG);
                 break;
             case ContextPriority::LOW:
-                contextAttributes.push_back(EGL_CONTEXT_PRIORITY_LOW_IMG);
+                contextAttributes.push_back(EGL_CONTEXT_PRIORITY_MEDIUM_IMG);
                 break;
             case ContextPriority::HIGH:
             default:
-                contextAttributes.push_back(EGL_CONTEXT_PRIORITY_HIGH_IMG);
+                contextAttributes.push_back(EGL_CONTEXT_PRIORITY_MEDIUM_IMG);
                 break;
         }
     }

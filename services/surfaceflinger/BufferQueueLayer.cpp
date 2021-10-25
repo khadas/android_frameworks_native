@@ -41,6 +41,7 @@ BufferQueueLayer::BufferQueueLayer(const LayerCreationArgs& args) : BufferLayer(
 BufferQueueLayer::~BufferQueueLayer() {
     mContentsChangedListener->abandon();
     mConsumer->abandon();
+    (static_cast<MonitoredProducer*>(mProducer.get()))->abandon();
 }
 
 // -----------------------------------------------------------------------

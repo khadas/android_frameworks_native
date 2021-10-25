@@ -74,12 +74,14 @@ public:
 
     // The Layer which created this producer, and on which queued Buffer's will be displayed.
     sp<Layer> getLayer() const;
+    void abandon();
 
 private:
     sp<IGraphicBufferProducer> mProducer;
     sp<SurfaceFlinger> mFlinger;
     // The Layer which created this producer, and on which queued Buffer's will be displayed.
     wp<Layer> mLayer;
+    bool mAbandoned;
 };
 
 }; // namespace android

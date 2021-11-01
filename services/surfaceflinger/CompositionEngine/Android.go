@@ -33,7 +33,8 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
     var cflags []string
     //fmt.Println("BOARD_HS_DYNAMIC_AFBC_TARGET_SF:",ctx.AConfig().Getenv("BOARD_HS_DYNAMIC_AFBC_TARGET"))
 
-    if (!strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk356x")){
+    if (!strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk356x") &&
+        !strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk3588")){
         cflags = append(cflags,"-DDISABLE_EXTERNAL_DISP_AFBC=1")
         cflags = append(cflags,"-DUSE_HWC2ON1ADAPTER=1")
     }

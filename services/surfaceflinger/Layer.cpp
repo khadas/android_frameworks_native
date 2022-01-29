@@ -704,7 +704,6 @@ void Layer::preparePerFrameBufferCompositionState() {
     snapshot->buffer = getBuffer();
     snapshot->acquireFence = mBufferInfo.mFence;
     snapshot->frameNumber = mBufferInfo.mFrameNumber;
-    snapshot->sidebandStreamHasFrame = false;
 }
 
 void Layer::preparePerFrameEffectsCompositionState() {
@@ -3440,6 +3439,8 @@ bool Layer::latchSidebandStream(bool& recomputeVisibleRegions) {
         // mSidebandStreamChanged was true
         mSidebandStream = s.sidebandStream;
         snapshot->sidebandStream = mSidebandStream;
+        // when sidebind stream change, need reset sidebandStreamHasFrame
+        snapshot->sidebandStreamHasFrame = false;
         if (mSidebandStream != nullptr) {
             setTransactionFlags(eTransactionNeeded);
             mFlinger->setTransactionFlags(eTraversalNeeded);

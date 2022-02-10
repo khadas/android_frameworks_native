@@ -52,6 +52,7 @@ using ui::Dataspace;
 
 /* SurfaceFlinger cannot simply include './src/mali_gralloc_usages.h', so a copy is defined. */
 #define RK_GRALLOC_USAGE_EXTERNAL_DISP (1ULL << 55)
+#define GRALLOC_USAGE__RK_EXT__EXTERNAL_DISP (7U << 24)
 
 /*
  * This implements the (main) framebuffer management. This class is used

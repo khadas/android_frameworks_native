@@ -1897,12 +1897,14 @@ void SurfaceFlinger::onMessageInvalidate(int64_t vsyncId, nsecs_t expectedVSyncT
     // When Backpressure propagation is enabled we want to give a small grace period
     // for the present fence to fire instead of just giving up on this frame to handle cases
     // where present fence is just about to get signaled.
-    const int graceTimeForPresentFenceMs =
-            (mPropagateBackpressureClientComposition || !mHadClientComposition) ? 1 : 0;
+    // const int graceTimeForPresentFenceMs =
+    //         (mPropagateBackpressureClientComposition || !mHadClientComposition) ? 1 : 0;
 
     // Pending frames may trigger backpressure propagation.
-    const TracedOrdinal<bool> framePending = {"PrevFramePending",
-                                              previousFramePending(graceTimeForPresentFenceMs)};
+    // const TracedOrdinal<bool> framePending = {"PrevFramePending",
+    //                                           previousFramePending(graceTimeForPresentFenceMs)};
+
+    const TracedOrdinal<bool> framePending = {"PrevFramePending", false};
 
     // Frame missed counts for metrics tracking.
     // A frame is missed if the prior frame is still pending. If no longer pending,

@@ -63,6 +63,8 @@ struct DisplaySettings {
 
     // SDR white point, -1f if unknown
     float sdrWhitePointNits = -1.f;
+
+    int display_id = -1;
 };
 
 static inline bool operator==(const DisplaySettings& lhs, const DisplaySettings& rhs) {

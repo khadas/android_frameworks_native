@@ -52,6 +52,8 @@
 #include "ProgramCache.h"
 #include "filters/BlurFilter.h"
 
+#include "../Keystone/DC_keystone.h"
+
 bool checkGlError(const char* op, int lineNumber) {
     bool errorFound = false;
     GLint error = glGetError();
@@ -470,6 +472,7 @@ GLESRenderEngine::GLESRenderEngine(const RenderEngineCreationArgs& args, EGLDisp
                                           mPlaceholderBuffer, attributes);
     ALOGE_IF(mPlaceholderImage == EGL_NO_IMAGE_KHR, "Failed to create placeholder image: %#x",
              eglGetError());
+    RKGFX_DC_init(mKeystoneContext);
 
     mShadowTexture = std::make_unique<GLShadowTexture>();
 }
@@ -1154,8 +1157,14 @@ status_t GLESRenderEngine::drawLayers(const DisplaySettings& display,
     setDisplayMaxLuminance(display.maxLuminance);
     setDisplayColorTransform(display.colorTransform);
 
+    mKeystoneContext->displayWidth = display.physicalDisplay.getWidth();
+    mKeystoneContext->displayHeight = display.physicalDisplay.getHeight();
+    mKeystoneContext->displayId = display.display_id;
+
+    mat4 mKeystoneMatrix;
+    RKGFX_DC_calculateMVP(mKeystoneContext, display.display_id, &mKeystoneMatrix);
     const mat4 projectionMatrix =
-            ui::Transform(display.orientation).asMatrix4() * mState.projectionMatrix;
+            mKeystoneMatrix * ui::Transform(display.orientation).asMatrix4() * mState.projectionMatrix;
     if (!display.clearRegion.isEmpty()) {
         glDisable(GL_BLEND);
         fillRegionWithColor(display.clearRegion, 0.0, 0.0, 0.0, 1.0);

@@ -1172,6 +1172,7 @@ std::optional<base::unique_fd> Output::composeSurfaces(
                    [](LayerFE::LayerSettings& settings) -> renderengine::LayerSettings* {
                        return &settings;
                    });
+    clientCompositionDisplay.display_id = (int)getDisplayId()->value;
 
     const nsecs_t renderEngineStart = systemTime();
     // Only use the framebuffer cache when rendering to an internal display

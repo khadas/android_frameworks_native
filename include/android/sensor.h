@@ -256,6 +256,14 @@ enum {
      * The hinge angle sensor value is returned in degrees.
      */
     ASENSOR_TYPE_HINGE_ANGLE = 36,
+    /**
+     * {@link ASENSOR_TYPE_CCT}
+     * reporting-mode: on-change
+     *
+     * The first value is Correlated Color Temperature in Kelvins (K).
+     * The rest of values are in lux and measure the R, G, B channel.
+     */
+    ASENSOR_TYPE_CCT = 65537,
 };
 
 /**

@@ -276,6 +276,10 @@ Sensor::Sensor(struct sensor_t const& hwSensor, const uuid_t& uuid, int halVersi
         mStringType = SENSOR_STRING_TYPE_HINGE_ANGLE;
         mFlags |= SENSOR_FLAG_ON_CHANGE_MODE;
         break;
+    case SENSOR_TYPE_CCT:
+        mStringType = SENSOR_STRING_TYPE_CCT;
+        mFlags |= SENSOR_FLAG_ON_CHANGE_MODE;
+        break;
     default:
         // Only pipe the stringType, requiredPermission and flags for custom sensors.
         if (halVersion > SENSORS_DEVICE_API_VERSION_1_0 && hwSensor.stringType) {

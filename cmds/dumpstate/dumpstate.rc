@@ -22,3 +22,39 @@ service bugreportd /system/bin/dumpstate -w
     class main
     disabled
     oneshot
+
+# dump kernel panic message at last boot
+service dump_kernel_panic /system/bin/dumpstate -K -q
+    socket dumpstate stream 0660 shell log
+    class main
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+# Check whether the last boot has panic or not duraing boot.
+on post-fs-data
+    start dump_kernel_panic
+
+# trigger a simple bugreport on demand
+service simple_bugreportd /system/bin/dumpstate -D -q
+    socket dumpstate stream 0660 shell log
+    class main
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+# RescureParty will check whether critical service can not bringup, and then enter recovery system
+# Here we trigger a bugreport if rescureparty decide to let device enter recovery mode.
+on property:sys.attempting_reboot=true
+    setprop sys.bugreport_reason rescure_part_reboot
+    start simple_bugreportd
+
+on property:sys.attempting_factory_reset=true
+    setprop sys.bugreport_reason rescure_party_factory
+    start simple_bugreportd
+
+# It is used to capture native crash before boot complete, after boot completion,
+# we use apk service to trigger bugreport capture.
+on property:sys.tombstone.triggered=true
+    setprop sys.bugreport_reason PREBOOT_TOMBSTONE
+    start simple_bugreportd

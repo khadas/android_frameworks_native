@@ -2082,6 +2082,176 @@ static void DumpstateWifiOnly() {
     printf("========================================================\n");
 }
 
+enum {
+    PSTORE_RB_PANIC,
+    PSTORE_RB_HARD_LOCK,
+    PSTORE_RB_SOFT_LOCK,
+    PSTORE_RB_STALL,
+    PSTORE_RB_INVALID_VIRT_ADDR,
+    PSTORE_RB_TASK_HUNG,
+    PSTORE_RB_UNKNOW,
+};
+static int is_abornomal_reboot() {
+    const char *panic_string[PSTORE_RB_UNKNOW] = {
+        "Kernel panic",
+        "Watchdog detected hard LOCKUP on cpu",
+        "NMI watchdog: BUG: soft lockup",
+        "detected stalls on",
+        "Unable to handle kernel paging request at virtual address",
+        "blocked for more than",
+    };
+    FILE *file;
+    char line[1024];
+
+    if (!access(PSTORE_LAST_KMSG, R_OK)) {
+        file = fopen(PSTORE_LAST_KMSG, "r");
+        if (!file){
+             MYLOGE("Open file [%s] failed\n", PSTORE_LAST_KMSG);
+             return PSTORE_RB_UNKNOW;
+        }
+    } else if (!access(ALT_PSTORE_LAST_KMSG, R_OK)) {
+        file = fopen(ALT_PSTORE_LAST_KMSG, "r");
+        if (!file){
+             MYLOGE("Open file [%s] failed\n", ALT_PSTORE_LAST_KMSG);
+             return PSTORE_RB_UNKNOW;
+        }
+    } else if (!access("/proc/last_kmsg", R_OK)) {
+        /* TODO: Make last_kmsg CAP_SYSLOG protected. b/5555691 */
+        file = fopen("/proc/last_kmsg", "r");
+        if (!file){
+             MYLOGE("Open file [/proc/last_kmsg] failed\n");
+             return PSTORE_RB_UNKNOW;
+        }
+    } else {
+        return PSTORE_RB_UNKNOW;
+    }
+
+    while (fgets(line, sizeof(line), file)) {
+        for (int i = 0; i < sizeof(panic_string) / sizeof(panic_string[0]); i++) {
+            if (strstr(line, panic_string[i])) {
+                MYLOGE("Found [%s] in pstore file 1\n", panic_string[i]);
+                fclose(file);
+                return i;
+            }
+        }
+    }
+
+    fclose(file);
+    return PSTORE_RB_UNKNOW;
+}
+
+// This method collects dumpsys for wifi debugging only
+static void DumpstateLastPanicLogOnly() {
+    DurationReporter duration_reporter("DUMPSTATE");
+
+    MYLOGE("========================================================\n");
+    if (ds.pstore_reboot_reason == PSTORE_RB_HARD_LOCK) {
+        MYLOGE("== Found HARD LOCK issue in pstore files\n");
+    } else if (ds.pstore_reboot_reason == PSTORE_RB_SOFT_LOCK) {
+        MYLOGE("== Found SOFT LOCK issue in pstore files\n");
+    } else if (ds.pstore_reboot_reason == PSTORE_RB_STALL) {
+        MYLOGE("== Found STALL issue in pstore files\n");
+    } else if (ds.pstore_reboot_reason == PSTORE_RB_INVALID_VIRT_ADDR) {
+        MYLOGE("== Found INVALID KERNEL PAGING issue in pstore files\n");
+    } else if (ds.pstore_reboot_reason == PSTORE_RB_PANIC) {
+        MYLOGE("== Found PANIC issue in pstore files\n");
+    } else if (ds.pstore_reboot_reason == PSTORE_RB_TASK_HUNG) {
+        MYLOGE("== Found TASK HUNG issue in pstore files\n");
+    } else if (ds.pstore_reboot_reason == PSTORE_RB_UNKNOW) {
+        MYLOGE("== No abnormal log in pstore files, maybe a hardware watchdog reset or shutdown\n");
+    } else {
+        MYLOGE("== Strange reboot reason, it's Unexpected\n");
+    }
+
+    MYLOGE("========================================================\n");
+
+    DoKmsg();
+    DumpFile("OPP SUMMARY", "/d/opp/opp_summary");
+    DumpFile("CLOCK TREE", "/d/clk/clk_summary");
+    DumpFile("CLOCK TREE", "/d/pm_genpd/pm_genpd_summary");
+
+    MYLOGE("== Final progress (pid %d): %d/%d (estimated %d)\n", ds.pid_, ds.progress_->Get(),
+           ds.progress_->GetMax(), ds.progress_->GetInitialMax());
+    MYLOGE("========================================================\n");
+    MYLOGE("== dumpstate: done (id %d)\n", ds.id_);
+    MYLOGE("========================================================\n");
+}
+
+static void DumpstateOnlyDemand() {
+    // Trimmed-down version of dumpstate to only include a whitelisted
+    // set of logs (system log, event log, and system server / system app
+    // crashes, and networking logs). See b/136273873 and b/138459828
+    // for context.
+    DurationReporter duration_reporter("DUMPSTATE");
+    unsigned long timeout_ms;
+
+    // calculate timeout
+    timeout_ms = logcat_timeout({"main", "system", "crash"});
+    RunCommand("SYSTEM LOG",
+               {"logcat", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+               CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+    timeout_ms = logcat_timeout({"events"});
+    RunCommand(
+        "EVENT LOG",
+        {"logcat", "-b", "events", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+        CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+
+
+    //if apk capture the tombstone from dropbox, the reason is SYSTEM_TOMBSTONE,
+    //and apk will copy the current tombstone file from dropbox to /sdcard/rklogs/
+    //Here we ONLY process the situation of native crash before boot_completed, so we set
+    //the android_bugrepot_reason to PREBOOT_TOMBSTONE
+    if (ds.android_bugrepot_reason == "PREBOOT_TOMBSTONE") {
+        printf("========================================================\n");
+        printf("== Native crashes before boot complete, See FS/tombstone\n");
+        printf("========================================================\n");
+        ds.tombstone_data_ = GetDumpFds(TOMBSTONE_DIR, TOMBSTONE_FILE_PREFIX, !ds.IsZipping());
+        const bool tombstones_dumped = AddDumps(ds.tombstone_data_.begin(), ds.tombstone_data_.end(),
+                                                "TOMBSTONE", true /* add_to_zip */);
+        if (!tombstones_dumped) {
+            printf("*** NO TOMBSTONES to dump in %s\n\n", TOMBSTONE_DIR.c_str());
+        }
+    }
+
+    if (strstr(ds.android_bugrepot_reason.c_str(), "lowmem")) {
+        printf("========================================================\n");
+        printf("== lowmem exception ,dump memory info\n");
+        printf("========================================================\n");
+        RunDumpsys("DUMPSYS MEMINFO", {"meminfo"}, CommandOptions::WithTimeout(90).Build(),
+               SEC_TO_MSEC(10));
+        DumpFile("VIRTUAL MEMORY STATS", "/proc/vmstat");
+        DumpFile("VMALLOC INFO", "/proc/vmallocinfo");
+        DumpFile("SLAB INFO", "/proc/slabinfo");
+        DumpFile("ZONEINFO", "/proc/zoneinfo");
+        DumpFile("PAGETYPEINFO", "/proc/pagetypeinfo");
+        DumpFile("BUDDYINFO", "/proc/buddyinfo");
+        DumpExternalFragmentationInfo();
+        RunCommand("LIST OF OPEN FILES", {"lsof"}, CommandOptions::AS_ROOT);
+    }
+    printf("========================================================\n");
+    printf("== Basic info\n");
+    printf("========================================================\n");
+
+    DumpFile("DISPLAY INFO", "/sys/kernel/debug/dri/0/summary");
+    RunDumpsys("DUMPSYS", {"SurfaceFlinger"}, CommandOptions::WithTimeout(90).Build(),
+               SEC_TO_MSEC(10));
+    RunCommand("MOUNT INFO", {"mount"});
+    RunCommand("FILESYSTEMS & FREE SPACE", {"df"});
+    RunCommand("SYSTEM PROPERTIES", {"getprop"});
+    DumpFile("MEMORY INFO", "/proc/meminfo");
+    RunCommand("PROCESSES AND THREADS",
+               {"ps", "-A", "-T", "-Z", "-O", "pri,nice,rtprio,sched,pcy,time"});
+    RunCommand("CPU INFO", {"top", "-b", "-n", "1", "-H", "-s", "6", "-o",
+                            "pid,tid,user,pr,ni,%cpu,s,virt,res,pcy,cmd,name"});
+
+    printf("========================================================\n");
+    printf("== Final progress (pid %d): %d/%d (estimated %d)\n", ds.pid_, ds.progress_->Get(),
+           ds.progress_->GetMax(), ds.progress_->GetInitialMax());
+    printf("========================================================\n");
+    printf("== dumpstate: done (id %d)\n", ds.id_);
+    printf("========================================================\n");
+}
+
 Dumpstate::RunStatus Dumpstate::DumpTraces(const char** path) {
     const std::string temp_file_pattern = ds.bugreport_internal_dir_ + "/dumptrace_XXXXXX";
     const size_t buf_size = temp_file_pattern.length() + 1;
@@ -2363,6 +2533,8 @@ static void ShowUsage() {
             "  -R: take bugreport in remote mode (shouldn't be used with -P)\n"
             "  -w: start binder service and make it wait for a call to startBugreport\n"
             "  -L: output limited information that is safe for submission in feedback reports\n"
+            "  -K: output pstore log if panic has happened on last boot\n"
+            "  -C: Out android crash log include tombstone if device can't boot up and hang on android logo\n"
             "  -v: prints the dumpstate header and exit\n");
 }
 
@@ -2477,13 +2649,20 @@ static bool PrepareToWriteToFile() {
         ds.base_name_ += "-telephony";
     } else if (ds.options_->wifi_only) {
         ds.base_name_ += "-wifi";
+    } else if (ds.options_->last_panic_dump) {
+        ds.base_name_ = "RKBugreport-kernel_panic";
+    } else if (ds.options_->android_dump_demand) {
+        ds.base_name_ = StringPrintf("RKBugreport-%s", ds.android_bugrepot_reason.c_str());
     }
 
     if (ds.options_->do_screenshot) {
         ds.screenshot_path_ = ds.GetPath(ds.CalledByApi() ? "-png.tmp" : ".png");
     }
     ds.tmp_path_ = ds.GetPath(".tmp");
-    ds.log_path_ = ds.GetPath("-dumpstate_log-" + std::to_string(ds.pid_) + ".txt");
+    if (ds.options_->android_dump_demand || ds.options_->last_panic_dump)
+        ds.log_path_ = ds.GetPath("-ds_log.txt");
+    else
+        ds.log_path_ = ds.GetPath("-dumpstate_log-" + std::to_string(ds.pid_) + ".txt");
 
     std::string destination = ds.CalledByApi()
                                   ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
@@ -2610,12 +2789,13 @@ static void LogDumpOptions(const Dumpstate::DumpOptions& options) {
         "do_vibrate: %d stream_to_socket: %d progress_updates_to_socket: %d do_screenshot: %d "
         "is_remote_mode: %d show_header_only: %d telephony_only: %d "
         "wifi_only: %d do_progress_updates: %d fd: %d bugreport_mode: %s dumpstate_hal_mode: %s "
-        "limited_only: %d args: %s\n",
+        "limited_only: %d args: %s last_panic_dump: %d android_dump_demand: %d\n",
         options.do_vibrate, options.stream_to_socket, options.progress_updates_to_socket,
         options.do_screenshot, options.is_remote_mode, options.show_header_only,
         options.telephony_only, options.wifi_only,
         options.do_progress_updates, options.bugreport_fd.get(), options.bugreport_mode.c_str(),
-        toString(options.dumpstate_hal_mode).c_str(), options.limited_only, options.args.c_str());
+        toString(options.dumpstate_hal_mode).c_str(), options.limited_only, options.args.c_str(),
+        options.last_panic_dump, options.android_dump_demand);
 }
 
 void Dumpstate::DumpOptions::Initialize(BugreportMode bugreport_mode,
@@ -2632,7 +2812,7 @@ void Dumpstate::DumpOptions::Initialize(BugreportMode bugreport_mode,
 Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) {
     RunStatus status = RunStatus::OK;
     int c;
-    while ((c = getopt(argc, argv, "dho:svqzpLPBRSV:w")) != -1) {
+    while ((c = getopt(argc, argv, "dho:svqzpLPBRSV:wKD")) != -1) {
         switch (c) {
             // clang-format off
             case 'o': out_dir = optarg;              break;
@@ -2644,6 +2824,8 @@ Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) 
             case 'P': do_progress_updates = true;    break;
             case 'R': is_remote_mode = true;         break;
             case 'L': limited_only = true;           break;
+            case 'K': last_panic_dump = true;           break;
+            case 'D': android_dump_demand = true;           break;
             case 'V':
             case 'd':
             case 'z':
@@ -2775,19 +2957,40 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         MYLOGE("Invalid options specified\n");
         return RunStatus::INVALID_INPUT;
     }
-    /* set as high priority, and protect from OOM killer */
-    setpriority(PRIO_PROCESS, 0, -20);
 
-    FILE* oom_adj = fopen("/proc/self/oom_score_adj", "we");
-    if (oom_adj) {
-        fputs("-1000", oom_adj);
-        fclose(oom_adj);
-    } else {
-        /* fallback to kernels <= 2.6.35 */
-        oom_adj = fopen("/proc/self/oom_adj", "we");
+    bool need_change_prio = true;
+    if (options_->last_panic_dump) {
+        pstore_reboot_reason = is_abornomal_reboot();
+        if (PSTORE_RB_UNKNOW == pstore_reboot_reason) {
+            MYLOGI("Not panic found in pstore file\n");
+            return OK;
+        }
+        MYLOGI("Found panic in pstore file, start dump\n");
+        need_change_prio = false;
+    }
+
+    if (options_->android_dump_demand) {
+        android_bugrepot_reason = android::base::GetProperty("sys.bugreport_reason", "unknown");
+        MYLOGI("apk trigger a bugreport, reason %s\n", android_bugrepot_reason.c_str());
+        //Only change the priority when android_dump_demand is true and sys.bugreport_reason is lowmem
+        need_change_prio = (android_bugrepot_reason == "system_server_lowmem");
+    }
+
+    if (need_change_prio) {
+        /* set as high priority, and protect from OOM killer */
+        setpriority(PRIO_PROCESS, 0, -20);
+    
+        FILE* oom_adj = fopen("/proc/self/oom_score_adj", "we");
         if (oom_adj) {
-            fputs("-17", oom_adj);
+            fputs("-1000", oom_adj);
             fclose(oom_adj);
+        } else {
+            /* fallback to kernels <= 2.6.35 */
+            oom_adj = fopen("/proc/self/oom_adj", "we");
+            if (oom_adj) {
+                fputs("-17", oom_adj);
+                fclose(oom_adj);
+            }
         }
     }
 
@@ -2927,7 +3130,9 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
 
     bool is_dumpstate_restricted = options_->telephony_only
                                    || options_->wifi_only
-                                   || options_->limited_only;
+                                   || options_->limited_only
+                                   || options_->last_panic_dump
+                                   || options_->android_dump_demand;
     if (!is_dumpstate_restricted) {
         // Invoke critical dumpsys first to preserve system state, before doing anything else.
         RunDumpsysCritical();
@@ -2952,6 +3157,10 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         DumpstateWifiOnly();
     } else if (options_->limited_only) {
         DumpstateLimitedOnly();
+    } else if (options_->last_panic_dump) {
+            DumpstateLastPanicLogOnly();
+    } else if (options_->android_dump_demand) {
+            DumpstateOnlyDemand();
     } else {
         // Dump state for the default case. This also drops root.
         RunStatus s = DumpstateDefaultAfterCritical();
@@ -3008,6 +3217,7 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     MYLOGD("Final progress: %d/%d (estimated %d)\n", progress_->Get(), progress_->GetMax(),
            progress_->GetInitialMax());
     progress_->Save();
+
     MYLOGI("done (id %d)\n", id_);
 
     TEMP_FAILURE_RETRY(dup2(dup_stderr_fd, fileno(stderr)));
@@ -3019,6 +3229,54 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
 
     tombstone_data_.clear();
     anr_data_.clear();
+
+    if (1 == android::base::GetIntProperty("sys.boot_completed", 0)) {
+        if (options_->android_dump_demand) {
+            DIR *d;
+            struct dirent *de;
+
+            std::string cur_path =  StringPrintf("%s-%s", ds.base_name_.c_str(), ds.name_.c_str());
+            std::string extras = StringPrintf("am broadcast -a android.intent.action.RKLOG_GEN_COMPLETED --es \"cur_br\" \"%s\" ",
+                                              cur_path.c_str());
+
+            std::string destination = ds.CalledByApi()
+                                      ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
+                                      : ds.bugreport_internal_dir_.c_str();
+            if (!(d = opendir(destination.c_str()))) {
+                MYLOGE("Failed to open %s (%s)\n", destination.c_str(), strerror(errno));
+            } else {
+                int i = 0;
+                while ((de = readdir(d))) {
+                    if (strcmp(de->d_name, "RKBugreport") != 0) {
+                        char *p = strstr(de->d_name, ".zip");
+                        if (!p)
+                            continue;
+                        int pos = p - de->d_name;
+                        //if ".zip" is the last string of d_name
+                        if (pos != (strlen(de->d_name) - 4))
+                            continue;
+                        char path[256];
+                        strncpy(path, de->d_name, pos);
+                        if (!strcmp(cur_path.c_str(), path))
+                            continue;
+                        //To avoid string is too long
+                        if (i > 20)
+                            break;
+                        if (i++ == 0)
+                            extras += StringPrintf("--es \"old_br\" \"%s", path);
+                        else
+                            extras += StringPrintf(",%s", path);
+                    }
+                }
+                if (i > 0)
+                    extras += "\"";
+                MYLOGD("extras: %s", extras.c_str());
+                closedir(d);
+            }
+            // Send COMPLETED broadcast for apps that listen to bugreport generation events
+            system(extras.c_str());
+        }
+    }
 
     return (consent_callback_ != nullptr &&
             consent_callback_->getResult() == UserConsentResult::UNAVAILABLE)

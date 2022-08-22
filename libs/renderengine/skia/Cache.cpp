@@ -411,7 +411,12 @@ void Cache::primeShaderCache(SkiaRenderEngine* renderengine) {
         // the requested usage bit.
         auto textures = {srcTexture, externalTexture};
         auto texturesWithF16 = {srcTexture, externalTexture, f16ExternalTexture};
+#if MALI_PRODUCT_ID_450
+        ALOGI("force canUsef16 to be false");
+        bool canUsef16 = false;
+#else
         bool canUsef16 = f16ExternalBuffer->getUsage() & GRALLOC_USAGE_HW_TEXTURE;
+#endif
 
         for (auto texture : canUsef16 ? texturesWithF16 : textures) {
             drawImageLayers(renderengine, display, dstTexture, texture);

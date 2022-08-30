@@ -941,8 +941,16 @@ private:
 
     void readPersistentProperties();
 
+#define UNUSED(x) ((void)x)
     bool exceedsMaxRenderTargetSize(uint32_t width, uint32_t height) const {
+#if MALI_PRODUCT_ID_450
+        UNUSED(width);
+        UNUSED(height);
+
+        return false;
+#else
         return width > mMaxRenderTargetSize || height > mMaxRenderTargetSize;
+#endif
     }
 
     int getMaxAcquiredBufferCountForCurrentRefreshRate(uid_t uid) const;

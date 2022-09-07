@@ -161,6 +161,7 @@ cc_test {
         "libsync",
         "libui",
         "libutils",
+        "librga",
     ],
     header_libs: [
         "android.hardware.graphics.composer@2.1-command-buffer",
@@ -168,5 +169,8 @@ cc_test {
         "android.hardware.graphics.composer@2.3-command-buffer",
         "android.hardware.graphics.composer@2.4-command-buffer",
         "libsurfaceflinger_headers",
+    ],
+    include_dirs: [
+        "hardware/rockchip/librga",
     ],
 }

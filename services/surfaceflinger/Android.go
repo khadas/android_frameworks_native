@@ -41,6 +41,10 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
 
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk3399")) {
         cflags = append(cflags,"-DRK_NV12_10_to_P010_BY_NEON=1")
+    }else if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk356x")||strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk3588")) {
+        //do nothing
+    }else{
+        cflags = append(cflags,"-DRK_NV12_10_to_NV12_BY_RGA=1")
     }
 
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_RK_GRALLOC_VERSION"),"4") ) {

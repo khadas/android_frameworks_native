@@ -120,9 +120,30 @@ filegroup {
     ],
 }
 
+bootstrap_go_package {
+    name: "soong-librenderengine",
+    pkgPath: "android/soong/librenderengine",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+          "Android.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+cc_librenderengine {
+    name: "cc_librenderengine_defaults"
+}
+
 cc_library_static {
     name: "librenderengine",
-    defaults: ["librenderengine_defaults"],
+    defaults: ["librenderengine_defaults", "cc_librenderengine_defaults"],
     double_loadable: true,
     clang: true,
     cflags: [

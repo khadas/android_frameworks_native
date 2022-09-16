@@ -47,6 +47,11 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cflags = append(cflags,"-DRK_NV12_10_to_NV12_BY_RGA=1")
     }
 
+    if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali400")||
+        strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali450")){
+        cflags = append(cflags,"-DRK_UTGARD_GPU_CLOSE_COLORMANAGEMENT=1")
+    }
+
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_RK_GRALLOC_VERSION"),"4") ) {
         cflags = append(cflags,"-DUSE_GRALLOC_4=1")
     }

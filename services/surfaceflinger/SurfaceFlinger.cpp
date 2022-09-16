@@ -397,9 +397,14 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory) : SurfaceFlinger(factory, SkipI
 
     hasWideColorDisplay = has_wide_color_display(false);
 
+#if RK_UTGARD_GPU_CLOSE_COLORMANAGEMENT
+    //Turn off color management on utgard GPU to avoid doing colorspace transformation twice.
+    useColorManagement = use_color_management(false);
+#else
     // Android 12 and beyond, color management in display pipeline is turned on
     // by default.
     useColorManagement = use_color_management(true);
+#endif
 
     mDefaultCompositionDataspace =
             static_cast<ui::Dataspace>(default_composition_dataspace(Dataspace::V0_SRGB));

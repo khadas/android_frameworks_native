@@ -50,6 +50,10 @@
 #include <gui/Surface.h>
 #include "TracedOrdinal.h"
 
+#if RK_UTGARD_GPU_WAIT_RELEASE_FENCE
+#include <sync/sync.h>
+#endif
+
 namespace android::compositionengine {
 
 Output::~Output() = default;
@@ -1173,6 +1177,11 @@ std::optional<base::unique_fd> Output::composeSurfaces(
                        return &settings;
                    });
     clientCompositionDisplay.display_id = (int)getDisplayId()->value;
+
+#if RK_UTGARD_GPU_WAIT_RELEASE_FENCE
+    //if on utgard GPU, wait release fence in surfaceflinger in advance to avoid waiting fence failed in Skia
+    sync_wait(fd.get(), -1);
+#endif
 
     const nsecs_t renderEngineStart = systemTime();
     // Only use the framebuffer cache when rendering to an internal display

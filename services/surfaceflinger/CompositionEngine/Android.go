@@ -43,6 +43,11 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cflags = append(cflags,"-DUSE_GRALLOC_4=1")
     }
 
+    if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali400")||
+        strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali450")){
+        cflags = append(cflags,"-DRK_UTGARD_GPU_WAIT_RELEASE_FENCE=1")
+    }
+
     //将需要区分的环境变量在此区域添加 //....
     return cflags
 }

@@ -53,6 +53,7 @@ cc_defaults {
         "libtimestats",
         "libui",
         "libutils",
+        "libsync",
     ],
     static_libs: [
         "libmath",

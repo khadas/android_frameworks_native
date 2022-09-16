@@ -526,6 +526,7 @@ class Dumpstate {
 
     int pstore_reboot_reason = 0;
     std::string android_bugrepot_reason;
+    std::string android_dropbox_time;
 
     // A callback to IncidentCompanion service, which checks user consent for sharing the
     // bugreport with the calling app. If the user has not responded yet to the dialog it will

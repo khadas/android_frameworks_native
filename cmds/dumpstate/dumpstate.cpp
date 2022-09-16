@@ -2140,27 +2140,126 @@ static int is_abornomal_reboot() {
     return PSTORE_RB_UNKNOW;
 }
 
+static long long int GetDirectorySize(char *dir)
+{
+    DIR *dp;
+    struct dirent *entry;
+    struct stat statbuf;
+    long long int totalSize=0;
+
+    if ((dp = opendir(dir)) == NULL) {
+        fprintf(stderr, "Cannot open dir: %s\n", dir);
+        return -1;
+    }
+
+    lstat(dir, &statbuf);
+    totalSize += statbuf.st_size;
+    while ((entry = readdir(dp)) != NULL) {
+        char subdir[256];
+        sprintf(subdir, "%s/%s", dir, entry->d_name);
+        lstat(subdir, &statbuf);
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            if (strcmp(".", entry->d_name) == 0 ||
+                strcmp("..", entry->d_name) == 0) {
+                continue;
+            }
+
+            totalSize += GetDirectorySize(subdir);
+        }
+        else {
+            totalSize += statbuf.st_size;
+        }
+    }
+
+//    MYLOGE("Totalsize of bugreports directory is %lld\n", totalSize);
+
+    closedir(dp);
+    return totalSize;
+}
+
+static int DelEarliestDirectory(std::string dir)
+{
+    DIR *dp;
+    struct dirent *entry;
+    struct stat statbuf;
+    struct dirent *earliest_entry = NULL;
+    long int earliest_time = -1;
+
+    if ((dp = opendir(dir.c_str())) == NULL) {
+        MYLOGE("Cannot open dir: %s\n", dir.c_str());
+        return -1;
+    }
+
+    while ((entry = readdir(dp)) != NULL) {
+        char subdir[256];
+        if (strcmp(".", entry->d_name) == 0 ||
+            strcmp("..", entry->d_name) == 0) {
+            continue;
+        }
+        sprintf(subdir, "%s/%s", dir.c_str(), entry->d_name);
+        lstat(subdir, &statbuf);
+        if (earliest_time == -1) {
+            earliest_time = statbuf.st_ctime;
+            earliest_entry = entry;
+        } else if (statbuf.st_ctime < earliest_time && !strstr(entry->d_name, "kernel_panic")) {
+            earliest_time = statbuf.st_ctime;
+            earliest_entry = entry;
+        }
+    }
+    closedir(dp);
+
+    if (earliest_entry == NULL) {
+        MYLOGE("Cannot find Earliest directory in path %s\n", dir.c_str());
+        return -1;
+    }
+    //remove earliest directory and files in it
+    std::string del_dir = android::base::StringPrintf("%s/%s", dir.c_str(), earliest_entry->d_name);
+    struct dirent *del_de = NULL;
+    DIR *del_dp;
+    if ((del_dp = opendir(del_dir.c_str())) == NULL) {
+        MYLOGE("Cannot open dir: %s\n", del_dir.c_str());
+        return -1;
+    }
+    while ((del_de = readdir(del_dp)) != NULL) {
+        if ( (strcmp( del_de->d_name, "." ) == 0) || (strcmp( del_de->d_name, ".." ) == 0) )
+            continue;
+        std::string del_file = android::base::StringPrintf("%s/%s", del_dir.c_str(), del_de->d_name);
+        lstat(del_file.c_str(), &statbuf);
+        if (S_ISDIR(statbuf.st_mode)) {
+            rmdir(del_file.c_str());
+            MYLOGE("Remove directory [%s], it's Strange\n", del_file.c_str());
+        } else {
+            remove(del_file.c_str());
+        }
+    }
+    closedir(del_dp);
+    rmdir(del_dir.c_str());
+
+    return 0;
+}
+
 // This method collects dumpsys for wifi debugging only
 static void DumpstateLastPanicLogOnly() {
     DurationReporter duration_reporter("DUMPSTATE");
 
     MYLOGE("========================================================\n");
     if (ds.pstore_reboot_reason == PSTORE_RB_HARD_LOCK) {
-        MYLOGE("== Found HARD LOCK issue in pstore files\n");
+	    MYLOGE("== Found HARD LOCK issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_SOFT_LOCK) {
-        MYLOGE("== Found SOFT LOCK issue in pstore files\n");
+	    MYLOGE("== Found SOFT LOCK issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_STALL) {
-        MYLOGE("== Found STALL issue in pstore files\n");
+	    MYLOGE("== Found STALL issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_INVALID_VIRT_ADDR) {
-        MYLOGE("== Found INVALID KERNEL PAGING issue in pstore files\n");
+	    MYLOGE("== Found INVALID KERNEL PAGING issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_PANIC) {
-        MYLOGE("== Found PANIC issue in pstore files\n");
+	    MYLOGE("== Found PANIC issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_TASK_HUNG) {
-        MYLOGE("== Found TASK HUNG issue in pstore files\n");
+	    MYLOGE("== Found TASK HUNG issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_UNKNOW) {
-        MYLOGE("== No abnormal log in pstore files, maybe a hardware watchdog reset or shutdown\n");
+	    MYLOGE("== No abnormal log in pstore files, maybe a hardware watchdog reset or shutdown\n");
     } else {
-        MYLOGE("== Strange reboot reason, it's Unexpected\n");
+	    MYLOGE("== Strange reboot reason, it's Unexpected\n");
     }
 
     MYLOGE("========================================================\n");
@@ -2196,6 +2295,11 @@ static void DumpstateOnlyDemand() {
         {"logcat", "-b", "events", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
         CommandOptions::WithTimeoutInMs(timeout_ms).Build());
 
+    if (ds.android_bugrepot_reason != "user_trigger" && ds.android_bugrepot_reason != "boot_completed" &&
+        ds.android_bugrepot_reason != "PREBOOT_TOMBSTONE" && ds.android_bugrepot_reason != "rescure_part_reboot" &&
+        ds.android_bugrepot_reason != "rescure_party_factory") {
+        RunDumpsys("DROPBOX INFO", {"dropbox", "-p", ds.android_bugrepot_reason.c_str()});
+    }
 
     //if apk capture the tombstone from dropbox, the reason is SYSTEM_TOMBSTONE,
     //and apk will copy the current tombstone file from dropbox to /sdcard/rklogs/
@@ -2228,6 +2332,7 @@ static void DumpstateOnlyDemand() {
         DumpExternalFragmentationInfo();
         RunCommand("LIST OF OPEN FILES", {"lsof"}, CommandOptions::AS_ROOT);
     }
+
     printf("========================================================\n");
     printf("== Basic info\n");
     printf("========================================================\n");
@@ -2650,9 +2755,9 @@ static bool PrepareToWriteToFile() {
     } else if (ds.options_->wifi_only) {
         ds.base_name_ += "-wifi";
     } else if (ds.options_->last_panic_dump) {
-        ds.base_name_ = "RKBugreport-kernel_panic";
+        ds.base_name_ = StringPrintf("%s-kernel_panic/RKBugreport-kernel_panic", date);
     } else if (ds.options_->android_dump_demand) {
-        ds.base_name_ = StringPrintf("RKBugreport-%s", ds.android_bugrepot_reason.c_str());
+        ds.base_name_ = StringPrintf("%s-%s/RKBugreport-%s", date, ds.android_bugrepot_reason.c_str(), ds.android_bugrepot_reason.c_str());
     }
 
     if (ds.options_->do_screenshot) {
@@ -2667,6 +2772,7 @@ static bool PrepareToWriteToFile() {
     std::string destination = ds.CalledByApi()
                                   ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
                                   : ds.bugreport_internal_dir_.c_str();
+
     MYLOGD(
         "Bugreport dir: [%s] "
         "Base name: [%s] "
@@ -2971,6 +3077,7 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
 
     if (options_->android_dump_demand) {
         android_bugrepot_reason = android::base::GetProperty("sys.bugreport_reason", "unknown");
+        android_dropbox_time = android::base::GetProperty("sys.bugreport_time", "0");
         MYLOGI("apk trigger a bugreport, reason %s\n", android_bugrepot_reason.c_str());
         //Only change the priority when android_dump_demand is true and sys.bugreport_reason is lowmem
         need_change_prio = (android_bugrepot_reason == "system_server_lowmem");
@@ -3230,51 +3337,23 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     tombstone_data_.clear();
     anr_data_.clear();
 
-    if (1 == android::base::GetIntProperty("sys.boot_completed", 0)) {
-        if (options_->android_dump_demand) {
-            DIR *d;
-            struct dirent *de;
-
-            std::string cur_path =  StringPrintf("%s-%s", ds.base_name_.c_str(), ds.name_.c_str());
-            std::string extras = StringPrintf("am broadcast -a android.intent.action.RKLOG_GEN_COMPLETED --es \"cur_br\" \"%s\" ",
-                                              cur_path.c_str());
-
-            std::string destination = ds.CalledByApi()
+    if (ds.options_->android_dump_demand || ds.options_->last_panic_dump) {
+        std::string destination = ds.CalledByApi()
                                       ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
                                       : ds.bugreport_internal_dir_.c_str();
-            if (!(d = opendir(destination.c_str()))) {
-                MYLOGE("Failed to open %s (%s)\n", destination.c_str(), strerror(errno));
-            } else {
-                int i = 0;
-                while ((de = readdir(d))) {
-                    if (strcmp(de->d_name, "RKBugreport") != 0) {
-                        char *p = strstr(de->d_name, ".zip");
-                        if (!p)
-                            continue;
-                        int pos = p - de->d_name;
-                        //if ".zip" is the last string of d_name
-                        if (pos != (strlen(de->d_name) - 4))
-                            continue;
-                        char path[256];
-                        strncpy(path, de->d_name, pos);
-                        if (!strcmp(cur_path.c_str(), path))
-                            continue;
-                        //To avoid string is too long
-                        if (i > 20)
-                            break;
-                        if (i++ == 0)
-                            extras += StringPrintf("--es \"old_br\" \"%s", path);
-                        else
-                            extras += StringPrintf(",%s", path);
-                    }
-                }
-                if (i > 0)
-                    extras += "\"";
-                MYLOGD("extras: %s", extras.c_str());
-                closedir(d);
-            }
+        int max_log_size = android::base::GetIntProperty("dumpstate.max_log_size", 300);
+        if (max_log_size <= 0)
+            max_log_size = 300;
+        long long int total_size = GetDirectorySize((char *)destination.c_str());
+        MYLOGI("total_size (%lld), max log size is %d\n", total_size, (max_log_size << 20));
+        if (total_size >= (max_log_size << 20))
+           DelEarliestDirectory(destination);
+    }
+
+    if (1 == android::base::GetIntProperty("sys.boot_completed", 0)) {
+        if (options_->android_dump_demand) {
             // Send COMPLETED broadcast for apps that listen to bugreport generation events
-            system(extras.c_str());
+            system("am broadcast -a android.intent.action.RKLOG_GEN_COMPLETED");
         }
     }
 

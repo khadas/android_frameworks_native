@@ -47,6 +47,12 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cflags = append(cflags,"-DUSE_GRALLOC_4=1")
     }
 
+    if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-G610") ) {
+        cflags = append(cflags,"-DMALI_PRODUCT_ID_G610=1")
+    } else if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali450") ) {
+        cflags = append(cflags,"-DMALI_PRODUCT_ID_450=1")
+    }
+
     //将需要区分的环境变量在此区域添加 //....
     return cflags
 }

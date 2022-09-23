@@ -2178,63 +2178,97 @@ static long long int GetDirectorySize(char *dir)
     return totalSize;
 }
 
-static int DelEarliestDirectory(std::string dir)
+static int remove_dir(char * del_dir)
 {
-    DIR *dp;
-    struct dirent *entry;
     struct stat statbuf;
-    struct dirent *earliest_entry = NULL;
-    long int earliest_time = -1;
-
-    if ((dp = opendir(dir.c_str())) == NULL) {
-        MYLOGE("Cannot open dir: %s\n", dir.c_str());
-        return -1;
-    }
-
-    while ((entry = readdir(dp)) != NULL) {
-        char subdir[256];
-        if (strcmp(".", entry->d_name) == 0 ||
-            strcmp("..", entry->d_name) == 0) {
-            continue;
-        }
-        sprintf(subdir, "%s/%s", dir.c_str(), entry->d_name);
-        lstat(subdir, &statbuf);
-        if (earliest_time == -1) {
-            earliest_time = statbuf.st_ctime;
-            earliest_entry = entry;
-        } else if (statbuf.st_ctime < earliest_time && !strstr(entry->d_name, "kernel_panic")) {
-            earliest_time = statbuf.st_ctime;
-            earliest_entry = entry;
-        }
-    }
-    closedir(dp);
-
-    if (earliest_entry == NULL) {
-        MYLOGE("Cannot find Earliest directory in path %s\n", dir.c_str());
-        return -1;
-    }
-    //remove earliest directory and files in it
-    std::string del_dir = android::base::StringPrintf("%s/%s", dir.c_str(), earliest_entry->d_name);
     struct dirent *del_de = NULL;
     DIR *del_dp;
-    if ((del_dp = opendir(del_dir.c_str())) == NULL) {
-        MYLOGE("Cannot open dir: %s\n", del_dir.c_str());
+    int ret = 0;
+
+    if ((del_dp = opendir(del_dir)) == NULL) {
+        MYLOGE("Cannot open dir: %s\n", del_dir);
         return -1;
     }
     while ((del_de = readdir(del_dp)) != NULL) {
         if ( (strcmp( del_de->d_name, "." ) == 0) || (strcmp( del_de->d_name, ".." ) == 0) )
             continue;
-        std::string del_file = android::base::StringPrintf("%s/%s", del_dir.c_str(), del_de->d_name);
+        std::string del_file = android::base::StringPrintf("%s/%s", del_dir, del_de->d_name);
         lstat(del_file.c_str(), &statbuf);
         if (S_ISDIR(statbuf.st_mode)) {
-            rmdir(del_file.c_str());
+            remove_dir((char*)del_file.c_str());
             MYLOGE("Remove directory [%s], it's Strange\n", del_file.c_str());
         } else {
-            remove(del_file.c_str());
+            if (remove(del_file.c_str())) {
+                MYLOGE("Failed to emove file [%s]\n", del_file.c_str());
+                ret--;
+            } else {
+                MYLOGI("Remove file [%s]\n", del_file.c_str());
+            }
         }
     }
     closedir(del_dp);
-    rmdir(del_dir.c_str());
+    if (rmdir(del_dir)) {
+        ret--;
+        MYLOGE("Failed to emove directory [%s][ret=%d]\n", del_dir, ret);
+    } else {
+        MYLOGI("Remove directory [%s]\n", del_dir);
+    }
+    return ret;
+}
+
+static int DelEarliestTwoDirectory(std::string dir)
+{
+    DIR *dp;
+    struct dirent *entry;
+    struct stat statbuf;
+    long int earliest_time = -1;
+    long int earliest_2nd_time = -1;
+    char del_dir[192], del_2nd_dir[192];
+
+    if ((dp = opendir(dir.c_str())) == NULL) {
+        MYLOGE("Cannot open bugreports dir: %s\n", dir.c_str());
+        return -1;
+    }
+
+    while ((entry = readdir(dp)) != NULL) {
+        char subdir[192];
+        if (strcmp(".", entry->d_name) == 0 ||
+            strcmp("..", entry->d_name) == 0 ||
+            strstr(entry->d_name, "kernel_panic")) {
+            continue;
+        }
+        if (strlen(dir.c_str()) + strlen(entry->d_name) > sizeof(subdir))
+            continue;
+        sprintf(subdir, "%s/%s", dir.c_str(), entry->d_name);
+        lstat(subdir, &statbuf);
+        if (earliest_time == -1) {
+           earliest_time = statbuf.st_ctime;
+           strcpy(del_dir, subdir);
+        } else if (statbuf.st_ctime < earliest_time) {
+           earliest_time = statbuf.st_ctime;
+            strcpy(del_dir, subdir);
+        } else if (earliest_2nd_time == -1) {
+            earliest_2nd_time = statbuf.st_ctime;
+            strcpy(del_2nd_dir, subdir);
+        } else if (statbuf.st_ctime <= earliest_2nd_time) {
+            earliest_2nd_time = statbuf.st_ctime;
+            strcpy(del_2nd_dir, subdir);
+        }
+    }
+    closedir(dp);
+
+    lstat(del_dir, &statbuf);
+    if (S_ISREG(statbuf.st_mode)) {
+        remove(del_dir);
+    } else {
+        remove_dir(del_dir);
+    }
+    lstat(del_2nd_dir, &statbuf);
+    if (S_ISREG(statbuf.st_mode)) {
+        remove(del_2nd_dir);
+    } else {
+        remove_dir(del_2nd_dir);
+    }
 
     return 0;
 }
@@ -3347,7 +3381,7 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         long long int total_size = GetDirectorySize((char *)destination.c_str());
         MYLOGI("total_size (%lld), max log size is %d\n", total_size, (max_log_size << 20));
         if (total_size >= (max_log_size << 20))
-           DelEarliestDirectory(destination);
+           DelEarliestTwoDirectory(destination);
     }
 
     if (1 == android::base::GetIntProperty("sys.boot_completed", 0)) {

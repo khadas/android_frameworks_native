@@ -2161,6 +2161,27 @@ bool SurfaceFlinger::commit(nsecs_t frameTime, int64_t vsyncId, nsecs_t expected
     return mustComposite && CC_LIKELY(mBootStage != BootStage::BOOTLOADER);
 }
 
+#if RK_FPS
+static int gsFrameCcount = 0;
+void SurfaceFlinger::debugShowFPS() const
+{
+    static int mFrameCount;
+    static int mLastFrameCount = 0;
+    static nsecs_t mLastFpsTime = 0;
+    static float mFps = 0;
+
+    mFrameCount++;
+    nsecs_t now = systemTime();
+    nsecs_t diff = now - mLastFpsTime;
+    if (diff > ms2ns(500)) {
+        mFps =  ((mFrameCount - mLastFrameCount) * float(s2ns(1))) / diff;
+        mLastFpsTime = now;
+        mLastFrameCount = mFrameCount;
+        ALOGD("mFrameCount = %d mFps = %2.3f",mFrameCount, mFps);
+    }
+}
+#endif
+
 void SurfaceFlinger::composite(nsecs_t frameTime, int64_t vsyncId)
         FTL_FAKE_GUARD(kMainThreadContext) {
     ATRACE_FORMAT("%s %" PRId64, __func__, vsyncId);
@@ -2278,6 +2299,20 @@ void SurfaceFlinger::composite(nsecs_t frameTime, int64_t vsyncId)
                 (mPowerHintSessionData.presentEnd - mPowerHintSessionData.commitStart);
         mPowerAdvisor->sendActualWorkDuration(flingerDuration, mPowerHintSessionData.presentEnd);
     }
+
+#if RK_FPS
+    if(gsFrameCcount++%300==0) {
+        gsFrameCcount = 1;
+        char value[PROPERTY_VALUE_MAX];
+        property_get("debug.sf.fps", value, "0");
+        mDebugFPS = atoi(value);
+    }
+
+    if (mDebugFPS > 0)
+        debugShowFPS();
+#endif
+
+
 }
 
 void SurfaceFlinger::updateLayerGeometry() {

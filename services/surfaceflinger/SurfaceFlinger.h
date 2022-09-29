@@ -93,6 +93,8 @@
 
 #include <aidl/android/hardware/graphics/common/DisplayDecorationSupport.h>
 
+#define RK_FPS                 (1)
+
 using namespace android::surfaceflinger;
 
 namespace android {
@@ -673,6 +675,11 @@ private:
     // Commits transactions for layers and displays. Returns whether any state has been invalidated,
     // i.e. whether a frame should be composited for each display.
     bool commit(nsecs_t frameTime, int64_t vsyncId, nsecs_t expectedVsyncTime) override;
+
+#if RK_FPS
+    //add by rk for fps
+    void debugShowFPS() const;
+#endif
 
     // Composites a frame for each display. CompositionEngine performs GPU and/or HAL composition
     // via RenderEngine and the Composer HAL, respectively.
@@ -1443,6 +1450,12 @@ private:
     } mPowerHintSessionData GUARDED_BY(kMainThreadContext);
 
     nsecs_t mAnimationTransactionTimeout = s2ns(5);
+
+#if RK_FPS
+    //add by rk for fps
+    int mDebugFPS;
+#endif
+
 
     friend class SurfaceComposerAIDL;
 };

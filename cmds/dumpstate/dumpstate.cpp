@@ -2335,6 +2335,13 @@ static void DumpstateOnlyDemand() {
         RunDumpsys("DROPBOX INFO", {"dropbox", "-p", ds.android_bugrepot_reason.c_str()});
     }
 
+    if (ds.android_bugrepot_reason == "boot_completed") {
+        printf("========================================================\n");
+        printf("== boot completed ,dump uboot log\n");
+        printf("========================================================\n");
+        DumpFile("UBOOT LOG", "/sys/fs/pstore/boot-log-ramoops-0");
+    }
+
     //if apk capture the tombstone from dropbox, the reason is SYSTEM_TOMBSTONE,
     //and apk will copy the current tombstone file from dropbox to /sdcard/rklogs/
     //Here we ONLY process the situation of native crash before boot_completed, so we set

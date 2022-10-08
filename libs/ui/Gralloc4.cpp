@@ -129,7 +129,7 @@ static status_t validateBufferDescriptorInfo(IMapper::BufferDescriptorInfo* desc
             descriptorInfo->format != hardware::graphics::common::V1_2::PixelFormat::BLOB &&
             descriptorInfo->usage & BufferUsage::GPU_DATA_BUFFER) {
         ALOGE("non-BLOB pixel format with GPU_DATA_BUFFER usage is not supported prior to gralloc 4.1");
-        return BAD_VALUE;
+        //return BAD_VALUE;
     }
 
     return NO_ERROR;

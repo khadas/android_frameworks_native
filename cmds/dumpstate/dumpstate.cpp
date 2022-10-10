@@ -2216,7 +2216,7 @@ static int remove_dir(char * del_dir)
     return ret;
 }
 
-static int DelEarliestTwoDirectory(std::string dir)
+static int DelEarliestTwoBugreport(std::string dir)
 {
     DIR *dp;
     struct dirent *entry;
@@ -2340,6 +2340,11 @@ static void DumpstateOnlyDemand() {
         printf("== boot completed ,dump uboot log\n");
         printf("========================================================\n");
         DumpFile("UBOOT LOG", "/sys/fs/pstore/boot-log-ramoops-0");
+
+        printf("========================================================\n");
+        printf("== dump last kernel log\n");
+        printf("========================================================\n");
+        DoKmsg();
     }
 
     //if apk capture the tombstone from dropbox, the reason is SYSTEM_TOMBSTONE,
@@ -2713,16 +2718,20 @@ bool Dumpstate::FinishZipFile() {
         return false;
     }
 
-    // Add log file (which contains stderr output) to zip...
-    fprintf(stderr, "dumpstate_log.txt entry on zip file logged up to here\n");
-    if (!ds.AddZipEntry("dumpstate_log.txt", ds.log_path_.c_str())) {
-        MYLOGE("Failed to add dumpstate log to .zip file\n");
-        return false;
+    if (!options_->last_panic_dump && !options_->android_dump_demand) {
+        // Add log file (which contains stderr output) to zip...
+        fprintf(stderr, "dumpstate_log.txt entry on zip file logged up to here\n");
+        if (!ds.AddZipEntry("dumpstate_log.txt", ds.log_path_.c_str())) {
+            MYLOGE("Failed to add dumpstate log to .zip file\n");
+            return false;
+        }
     }
     // TODO: Should truncate the existing file.
     // ... and re-open it for further logging.
-    if (!redirect_to_existing_file(stderr, const_cast<char*>(ds.log_path_.c_str()))) {
-        return false;
+    if (!options_->last_panic_dump && !options_->android_dump_demand) {
+        if (!redirect_to_existing_file(stderr, const_cast<char*>(ds.log_path_.c_str()))) {
+            return false;
+        }
     }
     fprintf(stderr, "\n");
 
@@ -2796,19 +2805,18 @@ static bool PrepareToWriteToFile() {
     } else if (ds.options_->wifi_only) {
         ds.base_name_ += "-wifi";
     } else if (ds.options_->last_panic_dump) {
-        ds.base_name_ = StringPrintf("%s-kernel_panic/RKBugreport-kernel_panic", date);
+        ds.base_name_ = date;
+        ds.name_ = "kernel_panic";
     } else if (ds.options_->android_dump_demand) {
-        ds.base_name_ = StringPrintf("%s-%s/RKBugreport-%s", date, ds.android_bugrepot_reason.c_str(), ds.android_bugrepot_reason.c_str());
+        ds.base_name_ = date;
+        ds.name_ = ds.android_bugrepot_reason;
     }
 
     if (ds.options_->do_screenshot) {
         ds.screenshot_path_ = ds.GetPath(ds.CalledByApi() ? "-png.tmp" : ".png");
     }
     ds.tmp_path_ = ds.GetPath(".tmp");
-    if (ds.options_->android_dump_demand || ds.options_->last_panic_dump)
-        ds.log_path_ = ds.GetPath("-ds_log.txt");
-    else
-        ds.log_path_ = ds.GetPath("-dumpstate_log-" + std::to_string(ds.pid_) + ".txt");
+    ds.log_path_ = ds.GetPath("-dumpstate_log-" + std::to_string(ds.pid_) + ".txt");
 
     std::string destination = ds.CalledByApi()
                                   ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
@@ -3059,7 +3067,8 @@ Dumpstate::RunStatus Dumpstate::Run(int32_t calling_uid, const std::string& call
 
 void Dumpstate::Cancel() {
     CleanupTmpFiles();
-    android::os::UnlinkAndLogOnError(log_path_);
+    if (!options_->last_panic_dump && !options_->android_dump_demand)
+        android::os::UnlinkAndLogOnError(log_path_);
     for (int i = 0; i < NUM_OF_DUMPS; i++) {
         android::os::UnlinkAndLogOnError(ds.bugreport_internal_dir_ + "/" +
                                          kDumpstateBoardFiles[i]);
@@ -3236,16 +3245,17 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
 
     int dup_stdout_fd;
     int dup_stderr_fd;
-    // Redirect stderr to log_path_ for debugging.
-    TEMP_FAILURE_RETRY(dup_stderr_fd = dup(fileno(stderr)));
-    if (!redirect_to_file(stderr, const_cast<char*>(log_path_.c_str()))) {
-        return ERROR;
+    if (!options_->last_panic_dump && !options_->android_dump_demand) {
+        // Redirect stderr to log_path_ for debugging.
+        TEMP_FAILURE_RETRY(dup_stderr_fd = dup(fileno(stderr)));
+        if (!redirect_to_file(stderr, const_cast<char*>(log_path_.c_str()))) {
+            return ERROR;
+        }
+        if (chown(log_path_.c_str(), AID_SHELL, AID_SHELL)) {
+            MYLOGE("Unable to change ownership of dumpstate log file %s: %s\n", log_path_.c_str(),
+                    strerror(errno));
+        }
     }
-    if (chown(log_path_.c_str(), AID_SHELL, AID_SHELL)) {
-        MYLOGE("Unable to change ownership of dumpstate log file %s: %s\n", log_path_.c_str(),
-                strerror(errno));
-    }
-
     // Redirect stdout to tmp_path_. This is the main bugreport entry and will be
     // moved into zip file later, if zipping.
     TEMP_FAILURE_RETRY(dup_stdout_fd = dup(fileno(stdout)));
@@ -3368,7 +3378,8 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
 
     MYLOGI("done (id %d)\n", id_);
 
-    TEMP_FAILURE_RETRY(dup2(dup_stderr_fd, fileno(stderr)));
+    if (!options_->last_panic_dump && !options_->android_dump_demand)
+        TEMP_FAILURE_RETRY(dup2(dup_stderr_fd, fileno(stderr)));
 
     if (control_socket_fd_ != -1) {
         MYLOGD("Closing control socket\n");
@@ -3388,7 +3399,7 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         long long int total_size = GetDirectorySize((char *)destination.c_str());
         MYLOGI("total_size (%lld), max log size is %d\n", total_size, (max_log_size << 20));
         if (total_size >= (max_log_size << 20))
-           DelEarliestTwoDirectory(destination);
+           DelEarliestTwoBugreport(destination);
     }
 
     if (1 == android::base::GetIntProperty("sys.boot_completed", 0)) {

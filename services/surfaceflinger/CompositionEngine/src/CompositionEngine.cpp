@@ -106,10 +106,32 @@ void CompositionEngine::present(CompositionRefreshArgs& args) {
     }
 
     updateLayerStateFromFE(args);
-
+#if USE_HWC2ON1ADAPTER
+    /*
+     * For HWC2 adapter to HWC1 on RK platform.
+     * Android 11.0 SurfaceFlinger call HWC by the following software process :
+     *   1. Primary display: updateInfo(Primary display) -> prepareFrame -> hwc-perpare -> postFramebuffer -> hwc-set
+     *   2. Extend  display: updateInfo(Extend display) -> prepareFrame -> hwc-perpare -> postFramebuffer -> hwc-set
+     * It's not suitable for HWC1 version,so amended to the following process:
+     *   1. updateInfo(Primary) -> updateInfo(Extend)
+     *   2. prepareFrame -> hwc-prepare (Primary and Extend display)
+     *   3. postFramebuffer -> hwc-set (Primary and Extend display)
+     */
+    for (const auto& output : args.outputs) {
+        output->updateInfoForHwc2On1Adapter(args);
+    }
+    for (const auto& output : args.outputs) {
+        output->presentForHwc2On1Adapter(args);
+    }
+    for (const auto& output : args.outputs) {
+        output->postBufferForHwc2On1Adapter(args);
+    }
+#else
     for (const auto& output : args.outputs) {
         output->present(args);
     }
+#endif /* #if USE_HWC2ON1ADAPTER */
+
 }
 
 void CompositionEngine::updateCursorAsync(CompositionRefreshArgs& args) {

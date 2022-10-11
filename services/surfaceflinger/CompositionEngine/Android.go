@@ -10,7 +10,7 @@ import (
 func init() {
 	//该打印会在执行mm命令时，打印在屏幕上
     //fmt.Println("SurfaceFlinger want to conditional Compile")
-    android.RegisterModuleType("cc_libsurfaceflinger", DefaultsFactory)
+    android.RegisterModuleType("cc_libcompositionengine", DefaultsFactory)
 }
 
 func DefaultsFactory() (android.Module) {

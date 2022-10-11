@@ -123,6 +123,11 @@ public:
             std::optional<android::HWComposer::DeviceRequestedChanges>*);
     virtual void resetCompositionStrategy();
 
+    /* For HWC2 adpter to HWC1 */
+    void updateInfoForHwc2On1Adapter(const CompositionRefreshArgs&) override;
+    void presentForHwc2On1Adapter(const CompositionRefreshArgs&) override;
+    void postBufferForHwc2On1Adapter(const CompositionRefreshArgs&) override;
+
 protected:
     std::unique_ptr<compositionengine::OutputLayer> createOutputLayer(const sp<LayerFE>&) const;
     std::optional<size_t> findCurrentOutputLayerForLayer(

@@ -3085,6 +3085,13 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
         if (currentState.flags != drawingState.flags) {
             display->setFlags(currentState.flags);
         }
+
+        // RK： 标准分辨率切换流程需要将 display size 修改提前
+        if (currentState.width != drawingState.width ||
+            currentState.height != drawingState.height) {
+            display->setDisplaySize(currentState.width, currentState.height);
+        }
+
         if ((currentState.orientation != drawingState.orientation) ||
             (currentState.layerStackSpaceRect != drawingState.layerStackSpaceRect) ||
             (currentState.orientedDisplaySpaceRect != drawingState.orientedDisplaySpaceRect)) {
@@ -3096,7 +3103,8 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
         }
         if (currentState.width != drawingState.width ||
             currentState.height != drawingState.height) {
-            display->setDisplaySize(currentState.width, currentState.height);
+            // RK： 标准分辨率切换流程需要将 display size 修改提前
+            // display->setDisplaySize(currentState.width, currentState.height);
 
             if (isDisplayActiveLocked(display)) {
                 onActiveDisplaySizeChanged(display);

@@ -867,10 +867,10 @@ bool HWComposer::shouldIgnoreHotplugConnect(hal::HWDisplayId hwcDisplayId,
     }
 
     // Legacy mode only supports IDs LEGACY_DISPLAY_TYPE_PRIMARY and LEGACY_DISPLAY_TYPE_EXTERNAL.
-    if (!mHasMultiDisplaySupport && mPhysicalDisplayIdMap.size() == 2) {
-        ALOGE("Ignoring connection of tertiary display %" PRIu64, hwcDisplayId);
-        return true;
-    }
+    // if (!mHasMultiDisplaySupport && mPhysicalDisplayIdMap.size() == 2) {
+    //     ALOGE("Ignoring connection of tertiary display %" PRIu64, hwcDisplayId);
+    //     return true;
+    // }
 
     return false;
 }
@@ -915,9 +915,10 @@ std::optional<DisplayIdentificationInfo> HWComposer::onHotplugConnect(
                 }
                 ALOGE("Failed to parse identification data for display %" PRIu64, hwcDisplayId);
             } else {
+                port = isPrimary ? LEGACY_DISPLAY_TYPE_PRIMARY : hwcDisplayId;
                 ALOGW_IF(hasDisplayIdentificationData,
                          "Ignoring identification data for display %" PRIu64, hwcDisplayId);
-                port = isPrimary ? LEGACY_DISPLAY_TYPE_PRIMARY : LEGACY_DISPLAY_TYPE_EXTERNAL;
+
             }
 
             return DisplayIdentificationInfo{.id = PhysicalDisplayId::fromPort(port),

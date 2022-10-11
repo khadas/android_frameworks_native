@@ -63,6 +63,9 @@ struct OutputCompositionState {
     // If true, the current frame reused the buffer from a previous client composition
     bool reusedClientComposition{false};
 
+    // RK: If true, the client target should be used afbc format
+    bool useNoAfbcClientTarget{false};
+
     // The conditions for including a layer on this output
     ui::LayerFilter layerFilter;
 

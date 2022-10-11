@@ -60,6 +60,7 @@ public:
     void prepareFrame(bool usesClientComposition, bool usesDeviceComposition) override;
     std::shared_ptr<renderengine::ExternalTexture> dequeueBuffer(
             base::unique_fd* bufferFence) override;
+    int perform(int operation, uint64_t usage) override;
     void queueBuffer(base::unique_fd readyFence) override;
     void onPresentDisplayCompleted() override;
     void flip() override;

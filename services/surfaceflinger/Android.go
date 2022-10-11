@@ -41,6 +41,7 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
 
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_RK_GRALLOC_VERSION"),"4") ) {
         cflags = append(cflags,"-DUSE_GRALLOC_4=1")
+        cflags = append(cflags,"-DHWC_VIR_DISPLAY_USE_NO_AFBC=1")
     }
 
     //将需要区分的环境变量在此区域添加 //....

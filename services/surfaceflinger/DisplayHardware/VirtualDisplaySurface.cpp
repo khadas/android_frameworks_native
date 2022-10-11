@@ -46,6 +46,14 @@
 
 namespace android {
 
+#ifdef HWC_VIR_DISPLAY_USE_NO_AFBC
+/* Gralloc 4.0 中, 表征 "调用 alloc() 的 client 要求分配的 buffer 不是 AFBC 格式".
+*/
+#define MALI_GRALLOC_USAGE_NO_AFBC (1ULL << 29)
+#else
+#define MALI_GRALLOC_USAGE_NO_AFBC (0)
+#endif
+
 VirtualDisplaySurface::VirtualDisplaySurface(HWComposer& hwc, VirtualDisplayId displayId,
                                              const sp<IGraphicBufferProducer>& sink,
                                              const sp<IGraphicBufferProducer>& bqProducer,
@@ -56,9 +64,9 @@ VirtualDisplaySurface::VirtualDisplaySurface(HWComposer& hwc, VirtualDisplayId d
         mDisplayId(displayId),
         mDisplayName(name),
         mSource{},
-        mDefaultOutputFormat(HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED),
-        mOutputFormat(HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED),
-        mOutputUsage(GRALLOC_USAGE_HW_COMPOSER),
+        mDefaultOutputFormat(HAL_PIXEL_FORMAT_RGBA_8888),
+        mOutputFormat(HAL_PIXEL_FORMAT_RGBA_8888),
+        mOutputUsage(GRALLOC_USAGE_HW_COMPOSER | MALI_GRALLOC_USAGE_NO_AFBC),
         mProducerSlotSource(0),
         mProducerBuffers(),
         mProducerSlotNeedReallocation(0),
@@ -92,13 +100,16 @@ VirtualDisplaySurface::VirtualDisplaySurface(HWComposer& hwc, VirtualDisplayId d
         sink->query(NATIVE_WINDOW_FORMAT, &sinkFormat);
         mDefaultOutputFormat = sinkFormat;
     } else {
-        mDefaultOutputFormat = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        mDefaultOutputFormat = HAL_PIXEL_FORMAT_RGBA_8888;
     }
+    // 由于编码端强制设置输入格式位 RGBA，故此处暂时设置为对应格式
+    // 待编码端适配代码实现后再考虑去掉该限制
+    mDefaultOutputFormat = HAL_PIXEL_FORMAT_RGBA_8888;
     mOutputFormat = mDefaultOutputFormat;
 
     ConsumerBase::mName = String8::format("VDS: %s", mDisplayName.c_str());
     mConsumer->setConsumerName(ConsumerBase::mName);
-    mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_COMPOSER);
+    mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_COMPOSER | MALI_GRALLOC_USAGE_NO_AFBC);
     mConsumer->setDefaultBufferSize(sinkWidth, sinkHeight);
     sink->setAsyncMode(true);
     IGraphicBufferProducer::QueueBufferOutput output;
@@ -152,7 +163,8 @@ status_t VirtualDisplaySurface::prepareFrame(CompositionType compositionType) {
     }
 
     if (mCompositionType != CompositionType::Gpu &&
-        (mOutputFormat != mDefaultOutputFormat || mOutputUsage != GRALLOC_USAGE_HW_COMPOSER)) {
+        (mOutputFormat != mDefaultOutputFormat ||
+        (mOutputUsage != (GRALLOC_USAGE_HW_COMPOSER | MALI_GRALLOC_USAGE_NO_AFBC)))) {
         // We must have just switched from GPU-only to MIXED or HWC
         // composition. Stop using the format and usage requested by the GPU
         // driver; they may be suboptimal when HWC is writing to the output
@@ -164,7 +176,7 @@ status_t VirtualDisplaySurface::prepareFrame(CompositionType compositionType) {
         // format/usage and get a new buffer when the GPU driver calls
         // dequeueBuffer().
         mOutputFormat = mDefaultOutputFormat;
-        mOutputUsage = GRALLOC_USAGE_HW_COMPOSER;
+        mOutputUsage = (GRALLOC_USAGE_HW_COMPOSER | MALI_GRALLOC_USAGE_NO_AFBC);
         refreshOutputBuffer();
     }
 
@@ -611,6 +623,8 @@ void VirtualDisplaySurface::resetPerFrameState() {
 
 status_t VirtualDisplaySurface::refreshOutputBuffer() {
     LOG_ALWAYS_FATAL_IF(GpuVirtualDisplayId::tryCast(mDisplayId).has_value());
+
+    mOutputUsage = mOutputUsage | MALI_GRALLOC_USAGE_NO_AFBC;
 
     if (mOutputProducerSlot >= 0) {
         mSource[SOURCE_SINK]->cancelBuffer(

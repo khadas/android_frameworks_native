@@ -356,6 +356,10 @@ public:
         return transform;
     }
 
+    int32_t notifyDisplayIdChanged(){
+        return 0;
+    }
+
     void setTouchAffineTransformation(const TouchAffineTransformation t) {
         transform = t;
     }

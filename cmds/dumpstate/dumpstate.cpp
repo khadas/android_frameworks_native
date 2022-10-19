@@ -2259,14 +2259,18 @@ static int DelEarliestTwoBugreport(std::string dir)
 
     lstat(del_dir, &statbuf);
     if (S_ISREG(statbuf.st_mode)) {
+        MYLOGI("delete file %s\n", del_dir);
         remove(del_dir);
     } else {
+        MYLOGI("delete directory %s\n", del_dir);
         remove_dir(del_dir);
     }
     lstat(del_2nd_dir, &statbuf);
     if (S_ISREG(statbuf.st_mode)) {
+        MYLOGI("delete file %s\n", del_2nd_dir);
         remove(del_2nd_dir);
     } else {
+        MYLOGI("delete directory %s\n", del_2nd_dir);
         remove_dir(del_2nd_dir);
     }
 
@@ -2345,6 +2349,8 @@ static void DumpstateOnlyDemand() {
         printf("== dump last kernel log\n");
         printf("========================================================\n");
         DoKmsg();
+        RunCommand("LAST LOGCAT", {"logcat", "-L", "-b", "all", "-v", "threadtime", "-v", "printable",
+                                   "-v", "uid", "-d", "*:v"});
     }
 
     //if apk capture the tombstone from dropbox, the reason is SYSTEM_TOMBSTONE,
@@ -3398,8 +3404,10 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
             max_log_size = 300;
         long long int total_size = GetDirectorySize((char *)destination.c_str());
         MYLOGI("total_size (%lld), max log size is %d\n", total_size, (max_log_size << 20));
-        if (total_size >= (max_log_size << 20))
-           DelEarliestTwoBugreport(destination);
+        while (total_size >= (max_log_size << 20)) {
+            DelEarliestTwoBugreport(destination);
+            total_size = GetDirectorySize((char *)destination.c_str());
+        }
     }
 
     if (1 == android::base::GetIntProperty("sys.boot_completed", 0)) {

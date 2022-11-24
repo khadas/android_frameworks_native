@@ -5807,7 +5807,8 @@ void SurfaceFlinger::renderScreenImplLocked(const RenderArea& renderArea,
     const auto reqHeight = renderArea.getReqHeight();
     const auto sourceCrop = renderArea.getSourceCrop();
     const auto transform = renderArea.getTransform();
-    const auto rotation = renderArea.getRotationFlags();
+    //const auto rotation = renderArea.getRotationFlags();
+    const auto rotation = ui::Transform::ROT_0;
     const auto& displayViewport = renderArea.getDisplayViewport();
 
     renderengine::DisplaySettings clientCompositionDisplay;

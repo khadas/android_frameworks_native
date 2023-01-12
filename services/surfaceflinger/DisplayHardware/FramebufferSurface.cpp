@@ -82,6 +82,11 @@ FramebufferSurface::FramebufferSurface(HWComposer& hwc, PhysicalDisplayId displa
 #if USE_GRALLOC_4
             flags |= RK_GRALLOC_USAGE_EXTERNAL_DISP;
 #else
+// On gralloc 0.3, GRALLOC_USAGE__RK_EXT__EXTERNAL_DISP is defined
+// in hardware/rockchip/libhardware_rockchip/include/hardware/gralloc_rockchip.h,
+// which is a vendor header, could not be included here.
+#define GRALLOC_USAGE__RK_EXT__EXTERNAL_DISP (0x04000000U)
+
             flags |= GRALLOC_USAGE__RK_EXT__EXTERNAL_DISP;
 #endif
         }

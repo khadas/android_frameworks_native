@@ -96,7 +96,7 @@ struct DispSyncIsSupportedVariant {
         EXPECT_CALL(static_cast<mock::VsyncController&>(vsyncSchedule->getController()),
                     startPeriodTransition(DEFAULT_VSYNC_PERIOD, false))
                 .Times(1);
-        EXPECT_CALL(static_cast<mock::VSyncTracker&>(vsyncSchedule->getTracker()), resetModel())
+        EXPECT_CALL(static_cast<mock::VSyncTracker&>(vsyncSchedule->getTracker()), resetModel(0))
                 .Times(1);
     }
 };

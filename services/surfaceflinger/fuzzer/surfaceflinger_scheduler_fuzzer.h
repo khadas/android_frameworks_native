@@ -92,7 +92,7 @@ public:
 
     void setPeriod(nsecs_t /* period */) override {}
 
-    void resetModel() override {}
+    void resetModel(nsecs_t /* period = 0 */) override {}
 
     bool needsMoreSamples() const override { return true; }
 

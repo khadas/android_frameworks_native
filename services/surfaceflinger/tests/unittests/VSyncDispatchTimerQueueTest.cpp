@@ -52,7 +52,7 @@ public:
     MOCK_CONST_METHOD1(nextAnticipatedVSyncTimeFrom, nsecs_t(nsecs_t));
     MOCK_CONST_METHOD0(currentPeriod, nsecs_t());
     MOCK_METHOD1(setPeriod, void(nsecs_t));
-    MOCK_METHOD0(resetModel, void());
+    MOCK_METHOD1(resetModel, void(nsecs_t));
     MOCK_CONST_METHOD0(needsMoreSamples, bool());
     MOCK_CONST_METHOD2(isVSyncInPhase, bool(nsecs_t, Fps));
     MOCK_METHOD(void, setRenderRate, (Fps), (override));

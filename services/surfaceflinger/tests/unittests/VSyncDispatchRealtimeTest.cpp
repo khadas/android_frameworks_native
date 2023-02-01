@@ -51,7 +51,7 @@ public:
     nsecs_t currentPeriod() const final { return mPeriod; }
 
     void setPeriod(nsecs_t) final {}
-    void resetModel() final {}
+    void resetModel(nsecs_t) final {}
     bool needsMoreSamples() const final { return false; }
     bool isVSyncInPhase(nsecs_t, Fps) const final { return false; }
     void setRenderRate(Fps) final {}
@@ -89,7 +89,7 @@ public:
     }
 
     void setPeriod(nsecs_t) final {}
-    void resetModel() final {}
+    void resetModel(nsecs_t) final {}
     bool needsMoreSamples() const final { return false; }
     bool isVSyncInPhase(nsecs_t, Fps) const final { return false; }
     void setRenderRate(Fps) final {}

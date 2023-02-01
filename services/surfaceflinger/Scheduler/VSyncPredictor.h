@@ -44,7 +44,7 @@ public:
     bool addVsyncTimestamp(nsecs_t timestamp) final EXCLUDES(mMutex);
     nsecs_t nextAnticipatedVSyncTimeFrom(nsecs_t timePoint) const final EXCLUDES(mMutex);
     nsecs_t currentPeriod() const final EXCLUDES(mMutex);
-    void resetModel() final EXCLUDES(mMutex);
+    void resetModel(nsecs_t period = 0) final EXCLUDES(mMutex);
 
     /*
      * Inform the model that the period is anticipated to change to a new value.
@@ -108,6 +108,7 @@ private:
     std::unordered_map<nsecs_t, Model> mutable mRateMap GUARDED_BY(mMutex);
 
     size_t mLastTimestampIndex GUARDED_BY(mMutex) = 0;
+    size_t mFirstSampleIndex = 0;
     std::vector<nsecs_t> mTimestamps GUARDED_BY(mMutex);
 
     std::optional<Fps> mRenderRate GUARDED_BY(mMutex);

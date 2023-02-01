@@ -105,7 +105,7 @@ VsyncSchedule::TrackerPtr VsyncSchedule::createTracker(PhysicalDisplayId id) {
     constexpr nsecs_t kInitialPeriod = (60_Hz).getPeriodNsecs();
     constexpr size_t kHistorySize = 20;
     constexpr size_t kMinSamplesForPrediction = 6;
-    constexpr uint32_t kDiscardOutlierPercent = 20;
+    constexpr uint32_t kDiscardOutlierPercent = 30;
 
     return std::make_unique<VSyncPredictor>(id, kInitialPeriod, kHistorySize,
                                             kMinSamplesForPrediction, kDiscardOutlierPercent);
@@ -145,6 +145,9 @@ void VsyncSchedule::startPeriodTransition(Period period, bool force) {
 
 bool VsyncSchedule::addResyncSample(TimePoint timestamp, ftl::Optional<Period> hwcVsyncPeriod) {
     bool needsHwVsync = false;
+    if (hwcVsyncPeriod) {
+        mLastHwcVsyncPeriod = hwcVsyncPeriod->ns();
+    }
     bool periodFlushed = false;
     {
         std::lock_guard<std::mutex> lock(mHwVsyncLock);
@@ -170,7 +173,8 @@ void VsyncSchedule::enableHardwareVsync() {
 
 void VsyncSchedule::enableHardwareVsyncLocked() {
     if (mHwVsyncState == HwVsyncState::Disabled) {
-        getTracker().resetModel();
+        nsecs_t period = !mLastHwcVsyncPeriod ? 0 : *mLastHwcVsyncPeriod;
+        mTracker->resetModel(period);
         mRequestHardwareVsync(mId, true);
         mHwVsyncState = HwVsyncState::Enabled;
     }

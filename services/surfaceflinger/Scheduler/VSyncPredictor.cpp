@@ -128,13 +128,14 @@ bool VSyncPredictor::addVsyncTimestamp(nsecs_t timestamp) {
     } else {
         mLastTimestampIndex = next(mLastTimestampIndex);
         mTimestamps[mLastTimestampIndex] = timestamp;
+        mFirstSampleIndex = next(mFirstSampleIndex);
     }
 
     traceInt64If("VSP-ts", timestamp);
 
     const size_t numSamples = mTimestamps.size();
     if (numSamples < kMinimumSamplesForPrediction) {
-        mRateMap[mIdealPeriod] = {mIdealPeriod, 0};
+//        mRateMap[mIdealPeriod] = {mIdealPeriod, 0};
         return true;
     }
 
@@ -159,7 +160,30 @@ bool VSyncPredictor::addVsyncTimestamp(nsecs_t timestamp) {
     // Normalizing to the oldest timestamp cuts down on error in calculating the intercept.
     const auto oldestTS = *std::min_element(mTimestamps.begin(), mTimestamps.end());
     auto it = mRateMap.find(mIdealPeriod);
-    auto const currentPeriod = it->second.slope;
+    auto currentPeriod = it->second.slope;
+
+    // calculate the period from vsync samples
+    nsecs_t durationSum = 0;
+    nsecs_t minDuration = INT64_MAX;
+    nsecs_t maxDuration = 0;
+    // We skip the first 2 samples. By doing so this actually increases the accuracy
+    // of the vsync model even though we're effectively relying on fewer sample points.
+    if (numSamples > 4) {
+        static constexpr size_t numSamplesSkipped = 2;
+        for (size_t i = numSamplesSkipped; i < numSamples; i++) {
+            size_t idx = (mFirstSampleIndex + i) % numSamples;
+            size_t prev = (idx + numSamples - 1) % numSamples;
+            nsecs_t duration = mTimestamps[idx] - mTimestamps[prev];
+            durationSum += duration;
+            minDuration = std::min(minDuration, duration);
+            maxDuration = std::max(maxDuration, duration);
+        }
+
+        // Exclude the min and max from the average
+        durationSum -= minDuration + maxDuration;
+        int validSize = static_cast<int>(numSamples - numSamplesSkipped - 2);
+        currentPeriod = durationSum / validSize;
+    }
 
     // The mean of the ordinals must be precise for the intercept calculation, so scale them up for
     // fixed-point arithmetic.
@@ -196,7 +220,7 @@ bool VSyncPredictor::addVsyncTimestamp(nsecs_t timestamp) {
     }
 
     if (CC_UNLIKELY(bottom == 0)) {
-        it->second = {mIdealPeriod, 0};
+        //it->second = {mIdealPeriod, 0};
         clearTimestamps();
         return false;
     }
@@ -206,7 +230,7 @@ bool VSyncPredictor::addVsyncTimestamp(nsecs_t timestamp) {
 
     auto const percent = std::abs(anticipatedPeriod - mIdealPeriod) * kMaxPercent / mIdealPeriod;
     if (percent >= kOutlierTolerancePercent) {
-        it->second = {mIdealPeriod, 0};
+        //it->second = {mIdealPeriod, 0};
         clearTimestamps();
         return false;
     }
@@ -238,8 +262,8 @@ nsecs_t VSyncPredictor::nextAnticipatedVSyncTimeFromLocked(nsecs_t timePoint) co
     if (mTimestamps.empty()) {
         traceInt64("VSP-mode", 1);
         auto const knownTimestamp = mKnownTimestamp ? *mKnownTimestamp : timePoint;
-        auto const numPeriodsOut = ((timePoint - knownTimestamp) / mIdealPeriod) + 1;
-        return knownTimestamp + numPeriodsOut * mIdealPeriod;
+        auto const numPeriodsOut = ((timePoint - knownTimestamp) / slope) + 1;
+        return knownTimestamp + numPeriodsOut * slope;
     }
 
     auto const oldest = *std::min_element(mTimestamps.begin(), mTimestamps.end());
@@ -377,6 +401,7 @@ void VSyncPredictor::clearTimestamps() {
 
         mTimestamps.clear();
         mLastTimestampIndex = 0;
+        mFirstSampleIndex = 0;
     }
 }
 
@@ -385,9 +410,10 @@ bool VSyncPredictor::needsMoreSamples() const {
     return mTimestamps.size() < kMinimumSamplesForPrediction;
 }
 
-void VSyncPredictor::resetModel() {
+void VSyncPredictor::resetModel(nsecs_t period) {
     std::lock_guard lock(mMutex);
-    mRateMap[mIdealPeriod] = {mIdealPeriod, 0};
+    auto slope = period == 0 ? mIdealPeriod : period;
+    mRateMap[mIdealPeriod] = {slope, 0};
     clearTimestamps();
 }
 
@@ -400,6 +426,22 @@ void VSyncPredictor::dump(std::string& result) const {
                       "\t\tFor ideal period %.2fms: period = %.2fms, intercept = %" PRId64 "\n",
                       idealPeriod / 1e6f, periodInterceptTuple.slope / 1e6f,
                       periodInterceptTuple.intercept);
+    }
+
+    auto const [slope, intercept] = getVSyncPredictionModelLocked();
+    StringAppendF(&result, "\tcurrent slop:%" PRId64 " intercept:%" PRId64 "\n", slope, intercept);
+    StringAppendF(&result, "\tmTimstamps:\n");
+    nsecs_t previous = -1;
+    for (size_t i = 0; i < mTimestamps.size(); i++) {
+        size_t idx = (mFirstSampleIndex + i) % mTimestamps.size();
+        nsecs_t sampleTime = mTimestamps[idx];
+        if (i == 0) {
+            StringAppendF(&result, "\t\t  %" PRId64 "\n", sampleTime);
+        } else {
+            StringAppendF(&result, "\t\t  %" PRId64 " (+%" PRId64 ")\n", sampleTime,
+                          sampleTime - previous);
+        }
+        previous = sampleTime;
     }
 }
 

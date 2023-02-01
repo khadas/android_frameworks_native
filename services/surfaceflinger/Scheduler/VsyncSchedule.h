@@ -128,6 +128,7 @@ private:
     static ControllerPtr createController(PhysicalDisplayId, VsyncTracker&, FeatureFlags);
 
     void enableHardwareVsyncLocked() REQUIRES(mHwVsyncLock);
+    std::optional<nsecs_t> mLastHwcVsyncPeriod;
 
     mutable std::mutex mHwVsyncLock;
     enum class HwVsyncState {

@@ -67,7 +67,7 @@ public:
     virtual void setPeriod(nsecs_t period) = 0;
 
     /* Inform the tracker that the samples it has are not accurate for prediction. */
-    virtual void resetModel() = 0;
+    virtual void resetModel(nsecs_t period = 0) = 0;
 
     virtual bool needsMoreSamples() const = 0;
 

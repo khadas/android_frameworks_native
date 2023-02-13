@@ -16,6 +16,7 @@
 
 #include "CursorButtonAccumulator.h"
 
+#include <cutils/properties.h>
 #include "EventHub.h"
 #include "InputDevice.h"
 

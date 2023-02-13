@@ -371,6 +371,11 @@ public:
         return mInputDevices;
     }
 
+    int32_t notifyDisplayIdChanged(){
+        return 0;
+    }
+
+
     TouchAffineTransformation getTouchAffineTransformation(const std::string& inputDeviceDescriptor,
             int32_t surfaceRotation) {
         return transform;

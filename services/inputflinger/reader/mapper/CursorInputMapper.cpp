@@ -26,6 +26,7 @@
 #include "TouchCursorInputMapperCommon.h"
 
 #include "input/PrintTools.h"
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -368,6 +369,21 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, yCursorPosition);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
+
+	char mMousePresentation[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.mouse.presentation", mMousePresentation, "0");
+        if (strcmp(mMousePresentation, "1") == 0) {
+           //displayId = mDisplayId;
+           float minX, minY, maxX, maxY;
+           if (mPointerController->getBounds(&minX, &minY, &maxX, &maxY)) {
+               if(xCursorPosition==minX||xCursorPosition==maxX||yCursorPosition==minY||yCursorPosition==maxY){
+                   mDisplayId=getPolicy()->notifyDisplayIdChanged();
+                   //mDisplayId=displayId;
+               }
+           }
+        }else{
+           mDisplayId = mPointerController->getDisplayId();
+        }
     } else {
         // Pointer capture and navigation modes
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, deltaX);

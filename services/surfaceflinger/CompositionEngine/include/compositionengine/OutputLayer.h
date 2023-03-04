@@ -132,6 +132,8 @@ public:
 
     // Debugging
     virtual void dump(std::string& result) const = 0;
+
+    virtual int32_t getCacheLimitSize() { return 0; }
 };
 
 } // namespace compositionengine

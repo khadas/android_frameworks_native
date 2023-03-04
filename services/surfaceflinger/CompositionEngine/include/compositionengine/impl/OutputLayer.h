@@ -26,6 +26,7 @@
 #include <ui/Rect.h>
 
 #include <ui/DisplayIdentification.h>
+#include <cutils/properties.h>
 
 #include <aidl/android/hardware/graphics/composer3/Composition.h>
 
@@ -115,7 +116,11 @@ std::unique_ptr<BaseOutputLayer> createOutputLayerTemplated(const Output& output
 #pragma clang diagnostic pop
 
         OutputLayer(const Output& output, const sp<LayerFE>& layerFE)
-              : mOutput(output), mLayerFE(layerFE) {}
+              : mOutput(output), mLayerFE(layerFE) {
+            char value[PROPERTY_VALUE_MAX];
+            property_get("vendor.hwc.video_buf_cache_max_size", value, "0");
+            mCacheLimitSize = atoi(value);
+        }
         ~OutputLayer() override = default;
 
     private:
@@ -128,9 +133,12 @@ std::unique_ptr<BaseOutputLayer> createOutputLayerTemplated(const Output& output
         // compositionengine::impl::OutputLayer overrides
         void dumpState(std::string& out) const override { mState.dump(out); }
 
+        int32_t getCacheLimitSize() override { return mCacheLimitSize; }
+
         const Output& mOutput;
         const sp<LayerFE> mLayerFE;
         OutputLayerCompositionState mState;
+        int32_t mCacheLimitSize;
     };
 
     return std::make_unique<OutputLayer>(output, layerFE);

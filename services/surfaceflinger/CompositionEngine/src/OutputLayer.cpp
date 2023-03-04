@@ -631,6 +631,19 @@ void OutputLayer::writeBufferStateToHWC(HWC2::Layer* hwcLayer,
         slot = HwcBufferCache::FLATTENER_CACHING_SLOT;
     }
 
+    /*
+     * In order to avoid OOM caused by HwcBufferCache, we limit the maximum buffer
+     * size (Width * Height). When the limit size is exceeded, we only use slot 0
+     * to cache.
+     */
+    int32_t cacheLimitSize = getCacheLimitSize();
+    if (cacheLimitSize > 0 && buffer->getPixelFormat() != PIXEL_FORMAT_RGBA_8888) {
+        int32_t pixelSize = (int32_t)(buffer->getWidth() * buffer->getHeight());
+        if (pixelSize > cacheLimitSize) {
+            slot = 0;
+        }
+    }
+
     ALOGV("Writing buffer %p", buffer.get());
 
     uint32_t hwcSlot = 0;

@@ -522,8 +522,13 @@ void OutputLayer::writeBufferStateToHWC(HWC2::Layer* hwcLayer,
     editState().hwc->hwcBufferCache.getHwcBuffer(outputIndependentState.bufferSlot,
                                                  outputIndependentState.buffer, &hwcSlot,
                                                  &hwcBuffer);
+    auto isSurfaceView = false;
+    if (strstr(getLayerFE().getDebugName(),"SurfaceView")) {
+        isSurfaceView = true;
+    }
 
-    if (auto error = hwcLayer->setBuffer(hwcSlot, hwcBuffer, outputIndependentState.acquireFence);
+    if (auto error = hwcLayer->setBuffer(hwcSlot, isSurfaceView
+            ? outputIndependentState.buffer : hwcBuffer, outputIndependentState.acquireFence);
         error != hal::Error::NONE) {
         ALOGE("[%s] Failed to set buffer %p: %s (%d)", getLayerFE().getDebugName(),
               outputIndependentState.buffer->handle, to_string(error).c_str(),

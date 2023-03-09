@@ -410,6 +410,12 @@ class Dumpstate {
         std::string notification_title;
         std::string notification_description;
 
+        //----rk-change----
+        //dump pstore message when panic happened last time
+        bool last_panic_dump;
+        bool android_dump_demand;
+        //----------------
+
         /* Initializes options from commandline arguments. */
         RunStatus Initialize(int argc, char* argv[]);
 
@@ -506,6 +512,11 @@ class Dumpstate {
     // parallel run is enabled.
     std::unique_ptr<android::os::dumpstate::TaskQueue> zip_entry_tasks_;
 
+    //----rk-change----
+    int pstore_reboot_reason = 0;
+    std::string android_bugrepot_reason;
+    std::string android_dropbox_time;
+    //-----------------
     // A callback to IncidentCompanion service, which checks user consent for sharing the
     // bugreport with the calling app. If the user has not responded yet to the dialog it will
     // be neither confirmed nor denied.

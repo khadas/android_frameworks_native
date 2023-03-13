@@ -425,7 +425,11 @@ base::unique_fd SkiaGLRenderEngine::flush() {
 }
 
 void SkiaGLRenderEngine::waitFence(base::borrowed_fd fenceFd) {
+#if MALI_PRODUCT_ID_450 || MALI_PRODUCT_ID_400
+    if (fenceFd.get() >= 0) {
+#else
     if (fenceFd.get() >= 0 && !waitGpuFence(fenceFd)) {
+#endif
         ATRACE_NAME("SkiaGLRenderEngine::waitFence");
         sync_wait(fenceFd.get(), -1);
     }

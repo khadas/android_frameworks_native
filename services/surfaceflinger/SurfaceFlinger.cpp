@@ -8571,8 +8571,8 @@ binder::Status SurfaceComposerAIDL::getDisplayStats(const sp<IBinder>& display,
     DisplayStatInfo statInfo;
     status_t status = mFlinger->getDisplayStats(display, &statInfo);
     if (status == NO_ERROR) {
-        outStatInfo->vsyncTime = static_cast<long>(statInfo.vsyncTime);
-        outStatInfo->vsyncPeriod = static_cast<long>(statInfo.vsyncPeriod);
+        outStatInfo->vsyncTime = static_cast<long long>(statInfo.vsyncTime);
+        outStatInfo->vsyncPeriod = static_cast<long long>(statInfo.vsyncPeriod);
     }
     return binderStatusFromStatusT(status);
 }

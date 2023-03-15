@@ -747,7 +747,7 @@ void OutputLayer::detectDisallowedCompositionTypeChange(Composition from, Compos
     }
 
     if (!result) {
-        ALOGE("[%s] Invalid device requested composition type change: %s (%d) --> %s (%d)",
+        ALOGV("[%s] Invalid device requested composition type change: %s (%d) --> %s (%d)",
               getLayerFE().getDebugName(), to_string(from).c_str(), static_cast<int>(from),
               to_string(to).c_str(), static_cast<int>(to));
     }

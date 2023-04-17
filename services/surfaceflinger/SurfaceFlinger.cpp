@@ -555,19 +555,23 @@ void SurfaceFlinger::enableHalVirtualDisplays(bool enable) {
 }
 
 VirtualDisplayId SurfaceFlinger::acquireVirtualDisplay(ui::Size resolution,
-                                                       ui::PixelFormat format) {
-    if (auto& generator = mVirtualDisplayIdGenerators.hal) {
-        if (const auto id = generator->generateId()) {
-            if (getHwComposer().allocateVirtualDisplay(*id, resolution, &format)) {
-                return *id;
-            }
+                                                       ui::PixelFormat format,
+                                                       ui::LayerStack layerStack) {
+    // RK: Primary Display will enable HAL virtual displays.
+    if(layerStack.id == 0){
+      if (auto& generator = mVirtualDisplayIdGenerators.hal) {
+          if (const auto id = generator->generateId()) {
+              if (getHwComposer().allocateVirtualDisplay(*id, resolution, &format)) {
+                  return *id;
+              }
 
-            generator->releaseId(*id);
-        } else {
-            ALOGW("%s: Exhausted HAL virtual displays", __func__);
-        }
+              generator->releaseId(*id);
+          } else {
+              ALOGW("%s: Exhausted HAL virtual displays", __func__);
+          }
 
-        ALOGW("%s: Falling back to GPU virtual display", __func__);
+          ALOGW("%s: Falling back to GPU virtual display", __func__);
+      }
     }
 
     const auto id = mVirtualDisplayIdGenerators.gpu.generateId();
@@ -2985,7 +2989,7 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
     if (const auto& physical = state.physical) {
         builder.setId(physical->id);
     } else {
-        builder.setId(acquireVirtualDisplay(resolution, pixelFormat));
+        builder.setId(acquireVirtualDisplay(resolution, pixelFormat, state.layerStack));
     }
 
     builder.setPixels(resolution);

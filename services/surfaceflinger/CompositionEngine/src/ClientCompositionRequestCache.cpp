@@ -62,8 +62,14 @@ inline bool equalIgnoringBuffer(const renderengine::LayerSettings& lhs,
 }
 
 bool layerSettingsAreEqual(const LayerFE::LayerSettings& lhs, const LayerFE::LayerSettings& rhs) {
-    return lhs.bufferId == rhs.bufferId && lhs.frameNumber == rhs.frameNumber &&
-            equalIgnoringBuffer(lhs, rhs);
+    // RK Support: 如果出现需要忽略cache的图层，则直接返回false
+    if(!rhs.name.empty() && (rhs.name.c_str(), "rk_handwrite_sf")){
+      return false;
+    }
+
+    return lhs.bufferId == rhs.bufferId &&
+           lhs.frameNumber == rhs.frameNumber &&
+           equalIgnoringBuffer(lhs, rhs);
 }
 
 } // namespace

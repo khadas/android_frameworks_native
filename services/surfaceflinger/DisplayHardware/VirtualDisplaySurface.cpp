@@ -126,6 +126,8 @@ status_t VirtualDisplaySurface::beginFrame(bool mustRecompose) {
     }
 
     mMustRecompose = mustRecompose;
+    // HW虚拟屏建议强制使能 mMustRecompose
+    mMustRecompose = true;
 
     VDS_LOGW_IF(mDebugState != DebugState::Idle, "Unexpected %s in %s state", __func__,
                 ftl::enum_string(mDebugState).c_str());

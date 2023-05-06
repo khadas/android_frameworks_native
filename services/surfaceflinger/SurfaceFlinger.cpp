@@ -7293,6 +7293,13 @@ status_t SurfaceFlinger::getMaxAcquiredBufferCount(int* buffers) const {
     }
 
     *buffers = getMaxAcquiredBufferCountForRefreshRate(maxRefreshRate);
+
+    // RK_SUPPORT:
+    // 多屏异刷应用需要申请更多的内存，来保证流畅性
+    if(maxFrameBufferAcquiredBuffers > 3){
+      *buffers = static_cast<int>(maxFrameBufferAcquiredBuffers - 2);
+    }
+
     return NO_ERROR;
 }
 

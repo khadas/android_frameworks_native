@@ -30,6 +30,9 @@
 
 #include <gui/ISurfaceComposerClient.h>
 #include <math/vec3.h>
+//-----------------------rk code----------
+#include <string>
+//----------------------------------------
 
 namespace android {
 
@@ -71,6 +74,11 @@ public:
 
     static status_t writeSurfaceToParcel(
             const sp<SurfaceControl>& control, Parcel* parcel);
+
+    //-----------------------rk code-----------
+    void setDefaultBbqName(std::string defaultName);
+    void setDefaultBbqChildName(std::string defaultName);
+    //-----------------------------------------
 
     sp<Surface> getSurface();
     sp<Surface> createSurface();
@@ -128,6 +136,11 @@ private:
     PixelFormat mFormat = PIXEL_FORMAT_NONE;
     uint32_t mCreateFlags = 0;
     uint64_t mFallbackFrameNumber = 100;
+
+    //-----------------------rk code----------
+    std::string mDefaultBbqName = "bbq-adapter";
+    std::string mDefaultBbqChildName = "bbq-wrapper";
+    //----------------------------------------
 };
 
 }; // namespace android

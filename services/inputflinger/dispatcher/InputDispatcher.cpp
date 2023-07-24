@@ -2933,6 +2933,11 @@ static bool canBeObscuredBy(const sp<WindowInfoHandle>& windowHandle,
     } else if (otherInfo->displayId != info->displayId) {
         return false;
     }
+    //-----------------------rk code----------
+    else if (0 == strncmp("rk_handwrite_sf", otherHandle->getName().c_str(), 15)) {
+        return false;
+    }
+    //----------------------------------------
     return true;
 }
 
@@ -2957,6 +2962,11 @@ static bool isWhiteListWindow(const WindowInfo* first, const WindowInfo* second,
         if (0 == strncmp("SubtitleSurface", otherHandle->getName().c_str(), 15)) {
             return true;
         }
+        //-----------------------rk code----------
+        else if (0 == strncmp("rk_handwrite_win", otherHandle->getName().c_str(), 16)) {
+            return true;
+        }
+        //----------------------------------------
     }
     return false;
 }

@@ -651,6 +651,7 @@ void Layer::preparePerFrameCompositionState() {
     snapshot->currentHdrSdrRatio = getCurrentHdrSdrRatio();
     snapshot->desiredHdrSdrRatio = getDesiredHdrSdrRatio();
     snapshot->cachingHint = getCachingHint();
+    snapshot->sidebandStream = getSidebandStream();
 
     const bool usesRoundedCorners = hasRoundedCorners();
 

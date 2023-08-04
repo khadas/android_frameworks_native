@@ -304,6 +304,7 @@ public:
     virtual bool isDimmingEnabled() const { return getDrawingState().dimmingEnabled; }
     float getDesiredHdrSdrRatio() const { return getDrawingState().desiredHdrSdrRatio; }
     float getCurrentHdrSdrRatio() const { return getDrawingState().currentHdrSdrRatio; }
+    sp<NativeHandle> getSidebandStream() const { return getDrawingState().sidebandStream; }
     gui::CachingHint getCachingHint() const { return getDrawingState().cachingHint; }
 
     bool setTransform(uint32_t /*transform*/);

@@ -66,6 +66,8 @@ public:
     void prepareFrame(bool /* usesClientComposition */, bool /* usesDeviceComposition */) override {
     }
 
+	int perform(int /* operation */, uint64_t /* usage */) override { return 0; }
+
     void onPresentDisplayCompleted() override {}
 
     void dump(std::string& /* result */) const override {}

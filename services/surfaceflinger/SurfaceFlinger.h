@@ -109,6 +109,8 @@
 #include <aidl/android/hardware/graphics/composer3/RefreshRateChangedDebugData.h>
 #include "Client.h"
 
+#define RK_FPS                 (1)
+
 using namespace android::surfaceflinger;
 
 namespace android {
@@ -377,6 +379,11 @@ private:
     friend class TransactionApplicationTest;
     friend class TunnelModeEnabledReporterTest;
 
+#if RK_FPS
+    //add by rk for fps
+    int mDebugFPS;
+#endif
+
     using TransactionSchedule = scheduler::TransactionSchedule;
     using GetLayerSnapshotsFunction = std::function<std::vector<std::pair<Layer*, sp<LayerFE>>>()>;
     using RenderAreaFuture = ftl::Future<std::unique_ptr<RenderArea>>;
@@ -636,6 +643,11 @@ private:
     bool commit(TimePoint frameTime, VsyncId, TimePoint expectedVsyncTime) override;
     void composite(TimePoint frameTime, VsyncId) override;
     void sample() override;
+
+#if RK_FPS
+    //add by rk for fps
+    void debugShowFPS() const;
+#endif
 
     // ISchedulerCallback overrides:
 

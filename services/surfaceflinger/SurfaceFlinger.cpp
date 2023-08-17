@@ -2415,13 +2415,14 @@ bool SurfaceFlinger::commit(TimePoint frameTime, VsyncId vsyncId, TimePoint expe
     // When backpressure propagation is enabled, we want to give a small grace period of 1ms
     // for the present fence to fire instead of just giving up on this frame to handle cases
     // where present fence is just about to get signaled.
-    const int graceTimeForPresentFenceMs = static_cast<int>(
-            mBackpressureGpuComposition || !mCompositionCoverage.test(CompositionCoverage::Gpu));
+    //const int graceTimeForPresentFenceMs = static_cast<int>(
+    //        mBackpressureGpuComposition || !mCompositionCoverage.test(CompositionCoverage::Gpu));
 
     // Pending frames may trigger backpressure propagation.
-    const TracedOrdinal<bool> framePending = {"PrevFramePending",
-                                              isFencePending(previousPresentFence,
-                                                             graceTimeForPresentFenceMs)};
+    //const TracedOrdinal<bool> framePending = {"PrevFramePending",
+    //                                          isFencePending(previousPresentFence,
+    //                                                         graceTimeForPresentFenceMs)};
+	const TracedOrdinal<bool> framePending = {"PrevFramePending", false};
 
     // Frame missed counts for metrics tracking.
     // A frame is missed if the prior frame is still pending. If no longer pending,

@@ -155,8 +155,14 @@ status_t VirtualDisplaySurface::prepareFrame(CompositionType compositionType) {
         mDebugLastCompositionType = mCompositionType;
     }
 
+    uint64_t outputUsage = GRALLOC_USAGE_HW_COMPOSER;
+    if (mHwcVirtualDisplay) {
+        outputUsage = GRALLOC_USAGE_HW_FB|GRALLOC_USAGE_PRIVATE_1;
+        mDefaultOutputFormat = PIXEL_FORMAT_RGBA_8888;
+    }
+
     if (mCompositionType != CompositionType::Gpu &&
-        (mOutputFormat != mDefaultOutputFormat || mOutputUsage != GRALLOC_USAGE_HW_COMPOSER)) {
+        (mOutputFormat != mDefaultOutputFormat || mOutputUsage != outputUsage)) {
         // We must have just switched from GPU-only to MIXED or HWC
         // composition. Stop using the format and usage requested by the GPU
         // driver; they may be suboptimal when HWC is writing to the output
@@ -167,8 +173,8 @@ status_t VirtualDisplaySurface::prepareFrame(CompositionType compositionType) {
         // If we just switched *to* GPU-only mode, we'll change the
         // format/usage and get a new buffer when the GPU driver calls
         // dequeueBuffer().
-        mOutputFormat = mDefaultOutputFormat;
-        mOutputUsage = GRALLOC_USAGE_HW_COMPOSER;
+        mOutputFormat = PIXEL_FORMAT_RGBA_8888;
+        mOutputUsage = outputUsage;
         refreshOutputBuffer();
     }
 
@@ -400,7 +406,12 @@ status_t VirtualDisplaySurface::dequeueBuffer(int* pslot, sp<Fence>* fence, uint
         // prepare and set, but since we're in GPU-only mode already it
         // shouldn't matter.
 
-        usage |= GRALLOC_USAGE_HW_COMPOSER;
+        if (mHwcVirtualDisplay) {
+            usage |= GRALLOC_USAGE_HW_FB|GRALLOC_USAGE_PRIVATE_1;
+            format = PIXEL_FORMAT_RGBA_8888;
+        } else {
+            usage |= GRALLOC_USAGE_HW_COMPOSER;
+        }
         const sp<GraphicBuffer>& buf = mProducerBuffers[mOutputProducerSlot];
         if ((usage & ~buf->getUsage()) != 0 ||
                 (format != 0 && format != buf->getPixelFormat()) ||
@@ -635,10 +646,10 @@ status_t VirtualDisplaySurface::refreshOutputBuffer() {
     // until after GPU calls queueBuffer(). So here we just set the buffer
     // (for use in HWC prepare) but not the fence; we'll call this again with
     // the proper fence once we have it.
-    const auto halDisplayId = HalVirtualDisplayId::tryCast(mDisplayId);
-    LOG_FATAL_IF(!halDisplayId);
-    result = mHwc.setOutputBuffer(*halDisplayId, Fence::NO_FENCE,
-                                  mProducerBuffers[mOutputProducerSlot]);
+    //const auto halDisplayId = HalVirtualDisplayId::tryCast(mDisplayId);
+    //LOG_FATAL_IF(!halDisplayId);
+    //result = mHwc.setOutputBuffer(*halDisplayId, Fence::NO_FENCE,
+    //                              mProducerBuffers[mOutputProducerSlot]);
 
     return result;
 }

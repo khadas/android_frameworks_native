@@ -121,6 +121,7 @@ public:
     virtual std::future<bool> chooseCompositionStrategyAsync(
             std::optional<android::HWComposer::DeviceRequestedChanges>*);
     virtual void resetCompositionStrategy();
+    virtual void enableAlwaysReCompose(bool mode) override;
 
 protected:
     std::unique_ptr<compositionengine::OutputLayer> createOutputLayer(const sp<LayerFE>&) const;
@@ -179,6 +180,7 @@ private:
 
     // Whether the content must be recomposed this frame.
     bool mMustRecompose = false;
+    bool mAlwaysRecompose = false;
 };
 
 // This template factory function standardizes the implementation details of the

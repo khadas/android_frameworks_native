@@ -1183,6 +1183,11 @@ private:
     bool mLayersRemoved = false;
     bool mLayersAdded = false;
 
+    //when hwc support virtualdisplay,always compose
+    bool mAlwaysReCompose = false;
+    std::vector<std::string> tokens;
+    bool mUseHwcVirtualDisplay = false;
+
     std::atomic_bool mMustComposite = false;
     std::atomic_bool mGeometryDirty = false;
 

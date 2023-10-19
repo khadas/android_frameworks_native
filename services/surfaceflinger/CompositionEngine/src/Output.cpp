@@ -433,10 +433,15 @@ void Output::prepare(const compositionengine::CompositionRefreshArgs& refreshArg
     uncacheBuffers(refreshArgs.bufferIdsToUncache);
 }
 
+void Output::enableAlwaysReCompose(bool mode) {
+    mAlwaysRecompose = mode;
+}
+
 void Output::present(const compositionengine::CompositionRefreshArgs& refreshArgs) {
     ATRACE_FORMAT("%s for %s", __func__, mNamePlusId.c_str());
     ALOGV(__FUNCTION__);
 
+    enableAlwaysReCompose(refreshArgs.alwaysReCompose);
     updateColorProfile(refreshArgs);
     updateCompositionState(refreshArgs);
     planComposition();
@@ -1050,7 +1055,7 @@ void Output::beginFrame() {
     //   frame, then nothing more until we get new layers.
     // - When a display is created with a private layer stack, we won't
     //   emit any black frames until a layer is added to the layer stack.
-    mMustRecompose = dirty && !(empty && wasEmpty);
+    mMustRecompose = (dirty && !(empty && wasEmpty)) || mAlwaysRecompose;
 
     const char flagPrefix[] = {'-', '+'};
     static_cast<void>(flagPrefix);

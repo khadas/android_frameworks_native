@@ -92,6 +92,7 @@ public:
     // Virtual display surface needs to prepare the frame based on composition type. Skip
     // any client composition prediction.
     virtual bool supportsCompositionStrategyPrediction() const override { return false; };
+    virtual void setHwcVirtualDisplay(bool hwcVirtualDisplay) {mHwcVirtualDisplay = hwcVirtualDisplay;}
 
 private:
     enum Source : size_t {
@@ -263,6 +264,7 @@ private:
     CompositionType mDebugLastCompositionType = CompositionType::Unknown;
 
     bool mMustRecompose = false;
+    bool mHwcVirtualDisplay = false;
 
     bool mForceHwcCopy;
 };

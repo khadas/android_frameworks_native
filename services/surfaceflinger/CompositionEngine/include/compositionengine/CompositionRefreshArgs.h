@@ -106,6 +106,9 @@ struct CompositionRefreshArgs {
 
     bool hasTrustedPresentationListener = false;
 
+    //If set, will always recompose
+    bool alwaysReCompose = false;
+
     ICEPowerCallback* powerCallback = nullptr;
 };
 

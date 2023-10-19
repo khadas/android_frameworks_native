@@ -318,6 +318,7 @@ protected:
     virtual bool isPowerHintSessionEnabled() = 0;
     virtual void cacheClientCompositionRequests(uint32_t cacheSize) = 0;
     virtual bool canPredictCompositionStrategy(const CompositionRefreshArgs&) = 0;
+    virtual void enableAlwaysReCompose(bool mode) = 0;
 };
 
 } // namespace compositionengine

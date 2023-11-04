@@ -2959,11 +2959,11 @@ static bool isWhiteListWindow(const WindowInfo* first, const WindowInfo* second,
         //ALOGW("isWhiteListWindow %s/%d/%s", otherHandle->getName().c_str(),
         //        info->ownerUid, info->packageName.c_str());
         // bbq-wrapper#0/1013/  SubtitleSurface#0/1013/
-        if (0 == strncmp("SubtitleSurface", otherHandle->getName().c_str(), 15)) {
-            return true;
-        }
+
         //-----------------------rk code----------
-        else if (0 == strncmp("rk_handwrite_win", otherHandle->getName().c_str(), 16)) {
+        else if (0 == strncmp("SubtitleSurface", otherHandle->getName().c_str(), 15) ||
+                0 == strncmp("rk_handwrite_win", otherHandle->getName().c_str(), 16) ||
+                strstr(otherHandle->getName().c_str(), "android.rk.RockVideoPlayer")) {
             return true;
         }
         //----------------------------------------

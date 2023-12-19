@@ -28,6 +28,7 @@
 #include "TouchButtonAccumulator.h"
 #include "TouchCursorInputMapperCommon.h"
 #include "ui/Rotation.h"
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -407,7 +408,19 @@ TouchInputMapper::Parameters TouchInputMapper::computeParameters(
             ALOGW("Invalid value for touch.orientation: '%s'", orientationString->c_str());
         }
     }
-
+    //----rk-code----
+    if(property_get_bool("persist.sys.rk-ebook",false)){
+        char mDisplayOrientation[PROPERTY_VALUE_MAX] = {0};
+        property_get("ro.surface_flinger.primary_display_orientation", mDisplayOrientation, "");
+        if (strcmp(mDisplayOrientation, "ORIENTATION_90") == 0){
+            parameters.orientation = ui::ROTATION_90;
+        }else if(strcmp(mDisplayOrientation, "ORIENTATION_180") == 0){
+            parameters.orientation = ui::ROTATION_180;
+        }else if(strcmp(mDisplayOrientation, "ORIENTATION_270") == 0){
+            parameters.orientation = ui::ROTATION_270;
+        }
+    }
+    //---------------
     parameters.hasAssociatedDisplay = false;
     parameters.associatedDisplayIsExternal = false;
     if (parameters.orientationAware ||

@@ -39,7 +39,6 @@ cc_defaults {
         "-Wunused",
         "-Wunreachable-code",
         "-Wconversion",
-        "-DANDROID_UTILS_REF_BASE_DISABLE_IMPLICIT_CONSTRUCTION",
     ],
 }
 
@@ -91,6 +90,7 @@ cc_defaults {
         "libui",
         "libinput",
         "libutils",
+        "librga",
         "libSurfaceFlingerProp",
         "server_configurable_flags",
     ],
@@ -129,6 +129,9 @@ cc_defaults {
         "libpowermanager",
         "libhidlbase",
         "libtimestats",
+    ],
+    include_dirs:[
+        "hardware/rockchip/librga",
     ],
     // TODO (marissaw): this library is not used by surfaceflinger. This is here so
     // the library compiled in a way that is accessible to system partition when running

@@ -45,6 +45,17 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cflags = append(cflags,"-DDISABLE_EXTERNAL_DISP_AFBC=1")
     }
 
+    if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-t860")) {
+        cflags = append(cflags,"-DRK_NV12_10_TO_P010_BY_NEON=1")
+    }else if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-G52") ||
+            strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-G610")) {
+        //do nothing
+    }else if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-t764")){
+        cflags = append(cflags,"-DRK_NV12_10_TO_NV12_BY_NEON=1")
+    }else{
+        cflags = append(cflags,"-DRK_NV12_10_TO_NV12_BY_RGA=1")
+    }
+
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_RK_GRALLOC_VERSION"),"4") ) {
         cflags = append(cflags,"-DUSE_GRALLOC_4=1")
         cflags = append(cflags,"-DHWC_VIR_DISPLAY_USE_NO_AFBC=1")

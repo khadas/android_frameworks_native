@@ -450,6 +450,9 @@ public:
 
     /* Returns true if any InputConnection is currently active. */
     virtual bool isInputMethodConnectionActive() = 0;
+    //-------rk-code------//
+    virtual int32_t notifyDisplayIdChanged() = 0;
+    //--------------------
 };
 
 } // namespace android

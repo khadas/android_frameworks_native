@@ -118,6 +118,9 @@ public:
     virtual void updateProtectedContentState();
     virtual bool dequeueRenderBuffer(base::unique_fd*,
                                      std::shared_ptr<renderengine::ExternalTexture>*);
+    //RK: reDequeueRenderBuffer in prepareFrameAsync if afbc status changed.
+    virtual bool reDequeueRenderBuffer(base::unique_fd*,
+                                       std::shared_ptr<renderengine::ExternalTexture>*);
     virtual std::future<bool> chooseCompositionStrategyAsync(
             std::optional<android::HWComposer::DeviceRequestedChanges>*);
     virtual void resetCompositionStrategy();

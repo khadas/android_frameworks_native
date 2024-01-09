@@ -62,6 +62,8 @@ public:
             base::unique_fd* bufferFence) override;
     int perform(int operation, uint64_t usage) override;
     void queueBuffer(base::unique_fd readyFence) override;
+    // RK: Call NativeWindows cancelBuffer interface
+    void cancelBuffer(base::unique_fd readyFence) override;
     void onPresentDisplayCompleted() override;
     bool supportsCompositionStrategyPrediction() const override;
 

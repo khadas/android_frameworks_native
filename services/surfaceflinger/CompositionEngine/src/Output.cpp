@@ -1138,6 +1138,15 @@ GpuCompositionResult Output::prepareFrameAsync() {
         }
         finishPrepareFrame();
         // Track the dequeued buffer to reuse so we don't need to dequeue another one.
+        //RK: Check if afbc status is changed, if so, redequeue buffer
+        if (changes->displayRequests != previousChanges->displayRequests) {
+            reDequeueRenderBuffer(&bufferFence, &buffer);
+            sp<Fence> mergedFence = android::Fence::merge(
+                "redequeueFence",
+                sp<Fence>(new Fence(std::move(compositionResult.fence))),
+                sp<Fence>(new Fence(std::move(bufferFence))));
+            compositionResult.fence = base::unique_fd(mergedFence->dup());
+        }
         compositionResult.buffer = buffer;
     } else {
         ATRACE_NAME("CompositionStrategyPredictionHit");
@@ -1261,6 +1270,12 @@ bool Output::dequeueRenderBuffer(base::unique_fd* bufferFence,
         }
     }
     return true;
+}
+
+bool Output::reDequeueRenderBuffer(base::unique_fd* bufferFence,
+                                 std::shared_ptr<renderengine::ExternalTexture>* tex){
+    mRenderSurface->cancelBuffer(std::move(*bufferFence));
+    return dequeueRenderBuffer(bufferFence,tex);
 }
 
 std::optional<base::unique_fd> Output::composeSurfaces(

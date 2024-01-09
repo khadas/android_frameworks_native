@@ -91,6 +91,9 @@ public:
     // which will fire when the buffer is ready for consumption.
     virtual void queueBuffer(base::unique_fd readyFence) = 0;
 
+    // RK: Call NativeWindows cancelBuffer interface
+    virtual void cancelBuffer(base::unique_fd readyFence) = 0;
+
     // Called after the HWC calls are made to present the display
     virtual void onPresentDisplayCompleted() = 0;
 

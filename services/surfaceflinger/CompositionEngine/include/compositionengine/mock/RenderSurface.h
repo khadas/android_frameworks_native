@@ -42,6 +42,7 @@ public:
     MOCK_METHOD1(dequeueBuffer, std::shared_ptr<renderengine::ExternalTexture>(base::unique_fd*));
     MOCK_METHOD2(perform, int(int,uint64_t));
     MOCK_METHOD1(queueBuffer, void(base::unique_fd));
+    MOCK_METHOD1(cancelBuffer, void(base::unique_fd));
     MOCK_METHOD0(onPresentDisplayCompleted, void());
     MOCK_CONST_METHOD1(dump, void(std::string& result));
     MOCK_CONST_METHOD0(supportsCompositionStrategyPrediction, bool());

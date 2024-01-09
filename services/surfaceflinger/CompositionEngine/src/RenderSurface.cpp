@@ -204,6 +204,22 @@ int RenderSurface::perform(int operation, uint64_t usage) {
     return result;
 }
 
+void RenderSurface::cancelBuffer(base::unique_fd readyFence){
+    if (mTexture == nullptr) {
+        ALOGE("No buffer is ready for display [%s]", mDisplay.getName().c_str());
+    } else {
+        status_t result = mNativeWindow->cancelBuffer(mNativeWindow.get(),
+                                                        mTexture->getBuffer()->getNativeBuffer(),
+                                                        dup(readyFence));
+        if (result != NO_ERROR) {
+            ALOGE("Error when cancelBuffer buffer for display [%s]: %d", mDisplay.getName().c_str(),
+                    result);
+        }
+
+        mTexture = nullptr;
+    }
+}
+
 void RenderSurface::queueBuffer(base::unique_fd readyFence) {
     auto& state = mDisplay.getState();
 

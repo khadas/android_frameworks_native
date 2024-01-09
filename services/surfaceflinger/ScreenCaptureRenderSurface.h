@@ -41,6 +41,10 @@ public:
         mRenderFence = sp<Fence>::make(readyFence.release());
     }
 
+    void cancelBuffer(base::unique_fd readyFence) override {
+        (void)readyFence;
+    };
+
     const sp<Fence>& getClientTargetAcquireFence() const override { return mRenderFence; }
 
     bool supportsCompositionStrategyPrediction() const override { return false; }

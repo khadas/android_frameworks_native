@@ -2384,7 +2384,8 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
     }
 
     if (pacesetterFrameTarget.isFramePending()) {
-        if (mBackpressureGpuComposition || pacesetterFrameTarget.didMissHwcFrame()) {
+ //       if (mBackpressureGpuComposition || pacesetterFrameTarget.didMissHwcFrame()) {
+          if (mBackpressureGpuComposition) {
             scheduleCommit(FrameHint::kNone);
             return false;
         }

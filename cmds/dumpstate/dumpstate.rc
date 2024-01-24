@@ -48,4 +48,18 @@ service simple_bugreportd /system/bin/dumpstate -D -q
     oneshot
     user root
     writepid /dev/cpuset/system-background/tasks
+
+# RescureParty will check whether critical service can not bringup, and then enter recovery system
+# Here we trigger a bugreport if rescureparty decide to let device enter recovery mode.
+on property:sys.max_rescue_level_attempted=*
+    setprop sys.bugreport_reason recure_party_resetsettings
+    start simple_bugreportd
+
+on property:sys.attempting_reboot=true
+    setprop sys.bugreport_reason rescure_party_reboot
+    start simple_bugreportd
+
+on property:sys.attempting_factory_reset=true
+    setprop sys.bugreport_reason rescure_party_factory
+    start simple_bugreportd
 #----------------

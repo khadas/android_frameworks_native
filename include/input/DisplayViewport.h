@@ -48,6 +48,7 @@ enum class ViewportType : int32_t {
  */
 struct DisplayViewport {
     int32_t displayId; // -1 if invalid
+    int32_t mirrorDisplayId;
     ui::Rotation orientation;
     int32_t logicalLeft;
     int32_t logicalTop;
@@ -68,6 +69,9 @@ struct DisplayViewport {
 
     DisplayViewport()
           : displayId(ADISPLAY_ID_NONE),
+            //----rk-code-------
+	    mirrorDisplayId(ADISPLAY_ID_NONE),
+            //------------------
             orientation(ui::ROTATION_0),
             logicalLeft(0),
             logicalTop(0),
@@ -85,7 +89,7 @@ struct DisplayViewport {
             type(ViewportType::INTERNAL) {}
 
     bool operator==(const DisplayViewport& other) const {
-        return displayId == other.displayId && orientation == other.orientation &&
+        return displayId == other.displayId && mirrorDisplayId == other.mirrorDisplayId && orientation == other.orientation &&
                 logicalLeft == other.logicalLeft && logicalTop == other.logicalTop &&
                 logicalRight == other.logicalRight && logicalBottom == other.logicalBottom &&
                 physicalLeft == other.physicalLeft && physicalTop == other.physicalTop &&
@@ -105,6 +109,9 @@ struct DisplayViewport {
 
     void setNonDisplayViewport(int32_t width, int32_t height) {
         displayId = ADISPLAY_ID_NONE;
+        //----rk-code-------
+	mirrorDisplayId=ADISPLAY_ID_NONE;
+        //------------------
         orientation = ui::ROTATION_0;
         logicalLeft = 0;
         logicalTop = 0;
@@ -123,12 +130,12 @@ struct DisplayViewport {
     }
 
     std::string toString() const {
-        return StringPrintf("Viewport %s: displayId=%d, uniqueId=%s, port=%s, orientation=%d, "
+        return StringPrintf("Viewport %s: displayId=%d, mirrorDisplayId=%d, uniqueId=%s, port=%s, orientation=%d, "
                             "logicalFrame=[%d, %d, %d, %d], "
                             "physicalFrame=[%d, %d, %d, %d], "
                             "deviceSize=[%d, %d], "
                             "isActive=[%d]",
-                            ftl::enum_string(type).c_str(), displayId, uniqueId.c_str(),
+                            ftl::enum_string(type).c_str(), displayId, mirrorDisplayId, uniqueId.c_str(),
                             physicalPort ? ftl::to_string(*physicalPort).c_str() : "<none>",
                             orientation, logicalLeft, logicalTop, logicalRight, logicalBottom,
                             physicalLeft, physicalTop, physicalRight, physicalBottom, deviceWidth,

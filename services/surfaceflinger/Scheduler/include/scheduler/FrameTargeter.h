@@ -88,6 +88,10 @@ protected:
     TracedOrdinal<bool> mHwcFrameMissed;
     TracedOrdinal<bool> mGpuFrameMissed;
 
+    //-------rk-code-----
+    // RK SVEP 由于单帧耗时时间大于 1 Vsync时间，故打开SVEP后，需要关闭FencePending逻辑
+    bool mDisableFramePending = false;
+    //-----------
     struct FenceWithFenceTime {
         sp<Fence> fence = Fence::NO_FENCE;
         FenceTimePtr fenceTime = FenceTime::NO_FENCE;

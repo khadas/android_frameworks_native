@@ -18,6 +18,7 @@
 
 #include <scheduler/FrameTargeter.h>
 #include <scheduler/IVsyncSource.h>
+#include <cutils/properties.h>
 
 namespace android::scheduler {
 
@@ -25,7 +26,14 @@ FrameTarget::FrameTarget(const std::string& displayLabel)
       : mFramePending("PrevFramePending " + displayLabel, false),
         mFrameMissed("PrevFrameMissed " + displayLabel, false),
         mHwcFrameMissed("PrevHwcFrameMissed " + displayLabel, false),
-        mGpuFrameMissed("PrevGpuFrameMissed " + displayLabel, false) {}
+        mGpuFrameMissed("PrevGpuFrameMissed " + displayLabel, false) {
+
+    //-------rk-code-----
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.sf.disable_frame_pending_by_svep_running", value, "0");
+    mDisableFramePending = atoi(value) > 0;
+    //------------
+}
 
 TimePoint FrameTarget::pastVsyncTime(Period vsyncPeriod) const {
     // TODO(b/267315508): Generalize to N VSYNCs.
@@ -99,6 +107,17 @@ void FrameTargeter::beginFrame(const BeginFrameArgs& args, const IVsyncSource& v
     const auto& isFencePending = *isFencePendingFuncPtr;
     mFramePending = pastPresentFence != FenceTime::NO_FENCE &&
             isFencePending(pastPresentFence, graceTimeForPresentFenceMs);
+
+    //-------rk-code-----
+    // RK SVEP 由于单帧耗时时间大于 1 Vsync时间，故打开SVEP后，需要关闭FencePending逻辑
+    if(mDisableFramePending && mFramePending){
+        char value[PROPERTY_VALUE_MAX];
+        property_get("vendor.hwc.svep_state", value, "0");
+        if(atoi(value) > 0){
+            mFramePending = false;
+        }
+    }
+    //------------
 
     // A frame is missed if the prior frame is still pending. If no longer pending, then we still
     // count the frame as missed if the predicted present time was further in the past than when the

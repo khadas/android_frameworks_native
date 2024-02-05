@@ -50,6 +50,7 @@
 #include <ui/DebugUtils.h>
 #include <ui/HdrCapabilities.h>
 #include <utils/Trace.h>
+#include <cutils/properties.h>
 
 #include "TracedOrdinal.h"
 
@@ -374,9 +375,15 @@ void Output::setRenderSurface(std::unique_ptr<compositionengine::RenderSurface> 
 }
 
 void Output::cacheClientCompositionRequests(uint32_t cacheSize) {
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.sf.limit.ui.refresh_rate", value, "0");
+    mLimitUiRefreshRate = atoi(value);
+
     if (cacheSize == 0) {
         mClientCompositionRequestCache.reset();
     } else {
+        if (mLimitUiRefreshRate >= 1)
+            cacheSize = 1;
         mClientCompositionRequestCache = std::make_unique<ClientCompositionRequestCache>(cacheSize);
     }
 };
@@ -1186,7 +1193,9 @@ void Output::finishFrame(GpuCompositionResult&& result) {
             bufferFence = std::move(result.fence);
         } else {
             updateProtectedContentState();
-            if (!dequeueRenderBuffer(&bufferFence, &buffer)) {
+            // skip dequeuebuffer when limit UI refresh rate
+            // do it later in composeSurfaces
+            if (mLimitUiRefreshRate == 0 && !dequeueRenderBuffer(&bufferFence, &buffer)) {
                 return;
             }
         }
@@ -1195,6 +1204,7 @@ void Output::finishFrame(GpuCompositionResult&& result) {
         optReadyFence = composeSurfaces(Region::INVALID_REGION, buffer, bufferFence);
     }
     if (!optReadyFence) {
+        ATRACE_NAME("cachhit no queuebuffer");
         return;
     }
 
@@ -1260,7 +1270,7 @@ std::optional<base::unique_fd> Output::composeSurfaces(
         return base::unique_fd();
     }
 
-    if (tex == nullptr) {
+    if (mLimitUiRefreshRate == 0 && tex == nullptr) {
         ALOGW("Buffer not valid for display [%s], bailing out of "
               "client composition for this frame",
               mName.c_str());
@@ -1286,17 +1296,34 @@ std::optional<base::unique_fd> Output::composeSurfaces(
     // Check if the client composition requests were rendered into the provided graphic buffer. If
     // so, we can reuse the buffer and avoid client composition.
     if (mClientCompositionRequestCache) {
-        if (mClientCompositionRequestCache->exists(tex->getBuffer()->getId(),
+        uint64_t bufferId = mLimitUiRefreshRate >= 1 ? 0 : tex->getBuffer()->getId();
+        if (mClientCompositionRequestCache->exists(bufferId,
                                                    clientCompositionDisplay,
                                                    clientCompositionLayers)) {
             ATRACE_NAME("ClientCompositionCacheHit");
             outputCompositionState.reusedClientComposition = true;
             setExpensiveRenderingExpected(false);
+
+            if (mLimitUiRefreshRate >= 1) {
+                return {};
+            }
+
             // b/239944175 pass the fence associated with the buffer.
             return base::unique_fd(std::move(fd));
         }
+    }
+
+    // now cache hit miss, need dequeuebuffer
+    if (tex == nullptr) {
+        if (mLimitUiRefreshRate >= 1 && !dequeueRenderBuffer(&fd, &tex)) {
+            return {};
+        }
+    }
+
+    if (mClientCompositionRequestCache) {
+        uint64_t bufferId = mLimitUiRefreshRate >= 1 ? 0 : tex->getBuffer()->getId();
         ATRACE_NAME("ClientCompositionCacheMiss");
-        mClientCompositionRequestCache->add(tex->getBuffer()->getId(), clientCompositionDisplay,
+        mClientCompositionRequestCache->add(bufferId, clientCompositionDisplay,
                                             clientCompositionLayers);
     }
 

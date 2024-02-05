@@ -34,6 +34,11 @@ cc_binary {
         ":layertracegenerator_sources",
         "main.cpp",
     ],
+
+    shared_libs: [
+        "//hardware/amlogic:libamgralloc_ext",
+    ],
+
     static_libs: [
         "libgtest",
     ],

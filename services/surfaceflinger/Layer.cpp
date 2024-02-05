@@ -80,6 +80,8 @@
 #include "TimeStats/TimeStats.h"
 #include "TunnelModeEnabledReporter.h"
 
+#include <am_gralloc_ext.h>
+
 #define DEBUG_RESIZE 0
 #define EARLY_RELEASE_ENABLED false
 
@@ -832,6 +834,7 @@ uint32_t Layer::doTransaction(uint32_t flags) {
     }
 
     commitTransaction(mDrawingState);
+    mPreLatchTime = systemTime();
 
     return flags;
 }
@@ -4059,6 +4062,7 @@ bool Layer::latchBufferImpl(bool& recomputeVisibleRegions, nsecs_t latchTime, bo
     bool refreshRequired = latchSidebandStream(recomputeVisibleRegions);
 
     if (refreshRequired) {
+        mPreLatchTime = latchTime;
         return refreshRequired;
     }
 
@@ -4069,6 +4073,8 @@ bool Layer::latchBufferImpl(bool& recomputeVisibleRegions, nsecs_t latchTime, bo
         mFlinger->onLayerUpdate();
         return false;
     }
+
+    mPreLatchTime = latchTime;
     updateTexImage(latchTime, bgColorOnly);
 
     // Capture the old state of the layer for comparisons later
@@ -4347,6 +4353,68 @@ bool Layer::setTrustedPresentationInfo(TrustedPresentationThresholds const& thre
 
 void Layer::updateLastLatchTime(nsecs_t latchTime) {
     mLastLatchTime = latchTime;
+}
+
+bool Layer::isVideoLayer() const {
+    if (mSidebandStream != nullptr)
+        return true;
+
+    if (getBuffer()) {
+        const native_handle_t* handle = getBuffer()->getNativeBuffer()->handle;
+
+        if (handle != nullptr) {
+            if (am_gralloc_is_uvm_dma_buffer(handle) ||
+                am_gralloc_is_omx_metadata_buffer(handle) ||
+                am_gralloc_is_overlay_buffer(handle) ||
+                (am_gralloc_is_coherent_buffer(handle) &&
+                 am_gralloc_get_format(handle) == HAL_PIXEL_FORMAT_YCrCb_420_SP)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool Layer::shouldPresentNow() {
+    enum {
+        UI_LIMIT_NONE = 0,
+        UI_LIMIT_HALF = 1,
+        UI_LIMIT_ONE_THIRD = 2,
+        UI_LIMIT_NO_CHECK = 3,
+    };
+    mTransactionReady = true;
+    // need limit ui refresh rate when have video layer
+    nsecs_t vsyncPeriod = 0;
+    bool limit = false;
+    int skipCount = mFlinger->isLimitUiRefreshRate(vsyncPeriod);
+
+    if (skipCount <= UI_LIMIT_NONE) {
+        limit = false;
+    } else if (skipCount > UI_LIMIT_NONE && skipCount < UI_LIMIT_NO_CHECK) {
+        // only limit ui when refresh rate greater than 60 fps
+        if (1e9/vsyncPeriod - 1 > 60){
+            limit = true;
+        }
+    } else {
+        limit = true;
+        skipCount = 1;
+    }
+
+    if (limit  && !isVideoLayer()) {
+        // alternate frame display
+        if ((systemTime() - mPreLatchTime) < ((skipCount + 0.5) * vsyncPeriod)) {
+            ATRACE_FORMAT("LimitedUi %s [%" PRId64 "]", getDebugName(), systemTime()-mPreLatchTime);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void Layer::setTransactionReadyStatus(bool ready) {
+    mTransactionReady = ready;
+    ATRACE_FORMAT("%s %s :%d", getDebugName(), __func__, ready);
 }
 
 void Layer::setIsSmallDirty() {

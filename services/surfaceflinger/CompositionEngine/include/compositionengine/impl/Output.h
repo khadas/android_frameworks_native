@@ -177,6 +177,8 @@ private:
     std::unique_ptr<ClientCompositionRequestCache> mClientCompositionRequestCache;
     std::unique_ptr<planner::Planner> mPlanner;
     std::unique_ptr<HwcAsyncWorker> mHwComposerAsyncWorker;
+    // limit ui refresh rate or not
+    int mLimitUiRefreshRate = 0;
 
     // Whether the content must be recomposed this frame.
     bool mMustRecompose = false;

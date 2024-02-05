@@ -100,6 +100,17 @@ struct TransactionState {
         }
     }
 
+    template <typename Visitor>
+    void traverseStates(Visitor&& visitor) {
+        for (auto state = states.begin(); state != states.end();) {
+            int result = visitor(state->state);
+            if (result == STOP_TRAVERSAL)
+                return;
+
+            state++;
+        }
+    }
+
     // TODO(b/185535769): Remove FrameHint. Instead, reset the idle timer (of the relevant physical
     // display) on the main thread if commit leads to composite. Then, RefreshRateOverlay should be
     // able to setFrameRate once, rather than for each transaction.

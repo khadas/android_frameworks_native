@@ -72,6 +72,7 @@ public:
     };
     void onTransactionQueueStalled(uint64_t transactionId, StalledTransactionInfo);
     void removeFromStalledTransactions(uint64_t transactionId);
+    void setUiLimit(bool limit) { mLimitUi = limit; }
     std::optional<StalledTransactionInfo> getStalledTransactionInfo(pid_t pid);
     void onLayerDestroyed(uint32_t layerId);
 
@@ -80,6 +81,7 @@ private:
     friend class ::android::TestableSurfaceFlinger;
 
     int flushPendingTransactionQueues(std::vector<TransactionState>&, TransactionFlushState&);
+    void TransactionUiLimitCheck(TransactionFlushState&);
     void applyUnsignaledBufferTransaction(std::vector<TransactionState>&, TransactionFlushState&);
     void popTransactionFromPending(std::vector<TransactionState>&, TransactionFlushState&,
                                    std::queue<TransactionState>&);
@@ -93,6 +95,8 @@ private:
     std::mutex mStalledMutex;
     std::unordered_map<uint64_t /* transactionId */, StalledTransactionInfo> mStalledTransactions
             GUARDED_BY(mStalledMutex);
+
+    bool mLimitUi = false;
 };
 } // namespace surfaceflinger::frontend
 } // namespace android

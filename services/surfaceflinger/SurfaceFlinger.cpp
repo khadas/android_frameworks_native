@@ -490,6 +490,10 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory) : SurfaceFlinger(factory, SkipI
             base::GetBoolProperty("persist.debug.sf.enable_layer_lifecycle_manager"s, false);
     mLegacyFrontEndEnabled = !mLayerLifecycleManagerEnabled ||
             base::GetBoolProperty("persist.debug.sf.enable_legacy_frontend"s, false);
+
+    property_get("debug.sf.limit.ui.refresh_rate", value, "0");
+    mLimitUiRefreshRate = atoi(value);
+    mTransactionHandler.setUiLimit(mLimitUiRefreshRate);
 }
 
 LatchUnsignaledConfig SurfaceFlinger::getLatchUnsignaledConfig() {
@@ -4298,6 +4302,23 @@ TransactionHandler::TransactionReadiness SurfaceFlinger::transactionReadyTimelin
 
     using TransactionReadiness = TransactionHandler::TransactionReadiness;
 
+    if (mLimitUiRefreshRate > 0) {
+        auto ready = TransactionReadiness::Ready;
+        flushState.transaction->traverseStates([&](const layer_state_t& s) -> bool {
+                sp<Layer> layer = LayerHandle::getLayer(s.surface);
+                // check ui refresh rate limitation
+                if (layer && layer->getTransactionReadyStatus() == false) {
+                    ATRACE_FORMAT("PresentNow false %s", layer->getDebugName());
+                    ready = TransactionReadiness::NotReady;
+                    return TraverseBuffersReturnValues::STOP_TRAVERSAL;
+                }
+                return TraverseBuffersReturnValues::CONTINUE_TRAVERSAL;
+        });
+        if (ready != TransactionReadiness::Ready) {
+            return ready;
+        }
+    }
+
     // Do not present if the desiredPresentTime has not passed unless it is more than
     // one second in the future. We ignore timestamps more than 1 second in the future
     // for stability reasons.
@@ -5806,10 +5827,14 @@ void SurfaceFlinger::dumpScheduler(std::string& result) const {
     dumper.eol();
 
     mVsyncConfiguration->dump(result);
+    nsecs_t vsyncPeriod;
+    bool limit = isLimitUiRefreshRate(vsyncPeriod);
     StringAppendF(&result,
                   "         present offset: %9" PRId64 " ns\t        VSYNC period: %9" PRId64
-                  " ns\n\n",
-                  dispSyncPresentTimeOffset, getVsyncPeriodFromHWC());
+                  " ns\n"
+                  "         mLimit: %d Limit period: %9" PRId64 " ns\n\n",
+                  dispSyncPresentTimeOffset, getVsyncPeriodFromHWC(),
+                  limit, vsyncPeriod);
 }
 
 void SurfaceFlinger::dumpEvents(std::string& result) const {
@@ -7844,6 +7869,12 @@ void SurfaceFlinger::onLayerDestroyed(Layer* layer) {
 
 void SurfaceFlinger::onLayerUpdate() {
     scheduleCommit(FrameHint::kActive);
+}
+
+int SurfaceFlinger::isLimitUiRefreshRate(nsecs_t &vsyncPeriod) const {
+    vsyncPeriod = mScheduler->getVsyncSchedule()->period().ns();
+
+    return mLimitUiRefreshRate;
 }
 
 // WARNING: ONLY CALL THIS FROM LAYER DTOR

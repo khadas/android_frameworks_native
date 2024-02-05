@@ -71,6 +71,7 @@ cc_defaults {
         "libutils",
         "libSurfaceFlingerProp",
         "server_configurable_flags",
+        "//hardware/amlogic:libamgralloc_ext",
     ],
     static_libs: [
         "libaidlcommonsupport",

@@ -920,6 +920,11 @@ public:
     void setTransformHint(std::optional<ui::Transform::RotationFlags> transformHint) {
         mTransformHint = transformHint;
     }
+    bool isVideoLayer() const;
+    bool shouldPresentNow();
+    void setTransactionReadyStatus(bool ready);
+    bool getTransactionReadyStatus() { return mTransactionReady; }
+
     // Keeps track of the previously presented layer stacks. This is used to get
     // the release fences from the correct displays when we release the last buffer
     // from the layer.
@@ -1062,6 +1067,9 @@ protected:
 
     sp<Fence> mLastClientCompositionFence;
     bool mClearClientCompositionFenceOnLayerDisplayed = false;
+    nsecs_t mPreLatchTime = 0;
+    bool mTransactionReady = true;
+
 private:
     friend class SlotGenerationTest;
     friend class TransactionFrameTracerTest;

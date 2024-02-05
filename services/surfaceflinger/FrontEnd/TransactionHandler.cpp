@@ -25,6 +25,10 @@
 
 #include "TransactionHandler.h"
 
+#include <gui/TraceUtils.h>
+#include "LayerHandle.h"
+#include "Layer.h"
+
 namespace android::surfaceflinger::frontend {
 
 void TransactionHandler::queueTransaction(TransactionState&& state) {
@@ -143,8 +147,69 @@ TransactionHandler::TransactionReadiness TransactionHandler::applyFilters(
     return ready;
 }
 
+void TransactionHandler::TransactionUiLimitCheck(TransactionFlushState& flushState) {
+    ATRACE_FORMAT("%s pendingTransaction empty:%d", __func__, mPendingTransactionQueues.empty());
+    auto ready = TransactionReadiness::Ready;
+    // first loop to check all ui layer transaction status
+    // ALL need to be ready, then we can apply them
+    for (auto it = mPendingTransactionQueues.begin(); it != mPendingTransactionQueues.end(); it++) {
+        auto& [applyToken, queue] = *it;
+        std::queue<TransactionState> tmpQueue = queue;
+        while (!tmpQueue.empty()) {
+            auto& transaction = tmpQueue.front();
+            flushState.transaction = &transaction;
+            flushState.transaction->traverseStates([&](const layer_state_t& s) -> bool {
+                    sp<Layer> layer = LayerHandle::getLayer(s.surface);
+                    // check ui refresh rate limitation
+                    if (layer && layer->shouldPresentNow() == false) {
+                        ATRACE_FORMAT("%s present false", layer->getDebugName());
+                        ready = TransactionReadiness::NotReady;
+                    }
+                    return TraverseBuffersReturnValues::CONTINUE_TRAVERSAL;
+            });
+
+            if (ready == TransactionReadiness::NotReady) {
+                break;
+            }
+            tmpQueue.pop();
+        }
+
+        if (ready == TransactionReadiness::NotReady) {
+            break;
+        }
+    }
+
+    // all is ready, do not need second loop
+    if (ready == TransactionReadiness::Ready) {
+        return;
+    }
+
+    // second loop to set all ui layer transaction status
+    for (auto it = mPendingTransactionQueues.begin(); it != mPendingTransactionQueues.end(); it++) {
+        auto& [applyToken, queue] = *it;
+        std::queue<TransactionState> tmpQueue = queue;
+        while (!tmpQueue.empty()) {
+            auto& transaction = tmpQueue.front();
+            flushState.transaction = &transaction;
+            flushState.transaction->traverseStates([&](const layer_state_t& s) -> bool {
+                    sp<Layer> layer = LayerHandle::getLayer(s.surface);
+                    if (layer && layer->isVideoLayer() == false)
+                        layer->setTransactionReadyStatus(false);
+                    return TraverseBuffersReturnValues::CONTINUE_TRAVERSAL;
+            });
+
+            tmpQueue.pop();
+        }
+    }
+
+    return;
+}
+
 int TransactionHandler::flushPendingTransactionQueues(std::vector<TransactionState>& transactions,
                                                       TransactionFlushState& flushState) {
+    if (mLimitUi)
+        TransactionUiLimitCheck(flushState);
+
     int transactionsPendingBarrier = 0;
     auto it = mPendingTransactionQueues.begin();
     while (it != mPendingTransactionQueues.end()) {

@@ -288,6 +288,7 @@ public:
     void onLayerFirstRef(Layer*);
     void onLayerDestroyed(Layer*);
     void onLayerUpdate();
+    int isLimitUiRefreshRate(nsecs_t &vsyncPeriod) const;
 
     void removeHierarchyFromOffscreenLayers(Layer* layer);
     void removeFromOffscreenLayers(Layer* layer);
@@ -685,6 +686,9 @@ private:
     bool mRefreshRateOverlayRenderRate = false;
     // Show render rate overlay offseted to the middle of the screen (e.g. for circular displays)
     bool mRefreshRateOverlayShowInMiddle = false;
+
+    // need limit UI refresh rate when have video layer
+    int mLimitUiRefreshRate = 0;
 
     void setDesiredActiveMode(display::DisplayModeRequest&&, bool force = false)
             REQUIRES(mStateLock);

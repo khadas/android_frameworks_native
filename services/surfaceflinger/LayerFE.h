@@ -53,6 +53,8 @@ public:
 
     std::unique_ptr<surfaceflinger::frontend::LayerSnapshot> mSnapshot;
 
+    bool isVideoLayer() const;
+
 private:
     std::optional<compositionengine::LayerFE::LayerSettings> prepareClientCompositionInternal(
             compositionengine::LayerFE::ClientCompositionTargetSettings&) const;
@@ -79,6 +81,7 @@ private:
 
     CompositionResult mCompositionResult;
     std::string mName;
+    bool mNotCapVideo;
 };
 
 } // namespace android

@@ -24,9 +24,11 @@
 #include <math/vec3.h>
 #include <system/window.h>
 #include <utils/Log.h>
+#include <cutils/properties.h>
 
 #include "LayerFE.h"
 #include "SurfaceFlinger.h"
+#include <am_gralloc_ext.h>
 
 namespace android {
 
@@ -76,7 +78,11 @@ void getDrawingTransformMatrix(const std::shared_ptr<renderengine::ExternalTextu
 
 } // namespace
 
-LayerFE::LayerFE(const std::string& name) : mName(name) {}
+LayerFE::LayerFE(const std::string& name) : mName(name) {
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.sf.not_capture_video", value, "0");
+    mNotCapVideo = atoi(value);
+}
 
 const compositionengine::LayerFECompositionState* LayerFE::getCompositionState() const {
     return mSnapshot.get();
@@ -210,7 +216,8 @@ void LayerFE::prepareBufferStateClientComposition(
     }
     const bool blackOutLayer =
             (mSnapshot->hasProtectedContent && !targetSettings.supportsProtectedContent) ||
-            ((mSnapshot->isSecure || mSnapshot->hasProtectedContent) && !targetSettings.isSecure);
+            ((mSnapshot->isSecure || mSnapshot->hasProtectedContent) && !targetSettings.isSecure) ||
+            (mNotCapVideo && isVideoLayer());
     const bool bufferCanBeUsedAsHwTexture =
             mSnapshot->externalTexture->getUsage() & GraphicBuffer::USAGE_HW_TEXTURE;
     if (blackOutLayer || !bufferCanBeUsedAsHwTexture) {
@@ -335,6 +342,27 @@ void LayerFE::onLayerDisplayed(ftl::SharedFuture<FenceResult> futureFenceResult,
 
 CompositionResult&& LayerFE::stealCompositionResult() {
     return std::move(mCompositionResult);
+}
+
+bool LayerFE::isVideoLayer() const {
+    if (mSnapshot->sidebandStream != nullptr)
+        return true;
+
+    if (getBuffer()) {
+        const native_handle_t* handle = getBuffer()->getNativeBuffer()->handle;
+
+        if (handle != nullptr) {
+            if (am_gralloc_is_uvm_dma_buffer(handle) ||
+                am_gralloc_is_omx_metadata_buffer(handle) ||
+                am_gralloc_is_overlay_buffer(handle) ||
+                (am_gralloc_is_coherent_buffer(handle) &&
+                 am_gralloc_get_format(handle) == HAL_PIXEL_FORMAT_YCrCb_420_SP)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 const char* LayerFE::getDebugName() const {

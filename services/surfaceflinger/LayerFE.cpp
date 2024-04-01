@@ -24,6 +24,13 @@
 #include <math/vec3.h>
 #include <system/window.h>
 #include <utils/Log.h>
+#include <renderengine/impl/ExternalTexture.h>
+#include <ui/GraphicBuffer.h>
+#include <gralloctypes/Gralloc4.h>
+#if RK_NV12_10_TO_NV12_BY_RGA
+// Use im2d api
+#include <im2d.hpp>
+#endif
 
 #include "LayerFE.h"
 #include "SurfaceFlinger.h"
@@ -86,6 +93,243 @@ bool LayerFE::onPreComposition(nsecs_t refreshStartTime, bool) {
     mCompositionResult.refreshStartTime = refreshStartTime;
     return mSnapshot->hasReadyFrame;
 }
+
+
+#if RK_NV12_10_TO_NV12_BY_RGA
+#define HAL_PIXEL_FORMAT_YCrCb_NV12 0x15
+#define HAL_PIXEL_FORMAT_YCrCb_NV12_10 0x17
+
+#define MAX_DST_BUFFER_NUM  2
+sp<GraphicBuffer> dstBufferRGA[MAX_DST_BUFFER_NUM];
+#define yuvTexUsage GraphicBuffer::USAGE_HW_TEXTURE /*| HDRUSAGE*/
+#define yuvTexFormat HAL_PIXEL_FORMAT_YCrCb_NV12
+
+const sp<GraphicBuffer> & rgaCopyBit(sp<GraphicBuffer> src_buf, const Rect& rect, int dst_width, int dst_height)
+{
+    int ret = 0;
+    rga_buffer_t src;
+    rga_buffer_t dst;
+    rga_buffer_t pat;
+    im_rect src_rect;
+    im_rect dst_rect;
+    im_rect pat_rect;
+    rga_buffer_handle_t src_handle, dst_handle;
+
+    memset(&src, 0, sizeof(rga_buffer_t));
+    memset(&dst, 0, sizeof(rga_buffer_t));
+    memset(&pat, 0, sizeof(rga_buffer_t));
+    memset(&src_rect, 0, sizeof(im_rect));
+    memset(&dst_rect, 0, sizeof(im_rect));
+    memset(&pat_rect, 0, sizeof(im_rect));
+
+    dst_rect.x = src_rect.x = rect.left;
+	dst_rect.y = src_rect.y = rect.top;
+	dst_rect.width  = src_rect.width  = rect.right - rect.left;
+	dst_rect.height = src_rect.height = rect.bottom -  rect.top;
+
+    static int yuvcnt;
+    int yuvIndex = 0;
+    yuvcnt ++;
+    yuvIndex = yuvcnt % MAX_DST_BUFFER_NUM;
+    if((dstBufferRGA[yuvIndex] != NULL) &&
+    (dstBufferRGA[yuvIndex]->getWidth() != (uint32_t)dst_width ||
+     dstBufferRGA[yuvIndex]->getHeight() != (uint32_t)dst_height))
+    {
+        dstBufferRGA[yuvIndex] = NULL;
+    }
+    if(dstBufferRGA[yuvIndex] == NULL)
+    {
+        ALOGV("nv12_10: sf new GraphicBuffer w:%d h:%d f:0x%x u:0x%x\n",dst_width, dst_height, yuvTexFormat, yuvTexUsage);
+        dstBufferRGA[yuvIndex] = new GraphicBuffer((uint32_t)dst_width, (uint32_t)dst_height, yuvTexFormat, yuvTexUsage);
+    }
+
+    /*
+     * Import the allocated GraphicBuffer into RGA by calling
+     * importbuffer_GraphicBuffer, and use the returned buffer_handle
+     * to call RGA to process the image.
+     */
+    src_handle = importbuffer_GraphicBuffer(src_buf);
+    dst_handle = importbuffer_GraphicBuffer(dstBufferRGA[yuvIndex]);
+    if (src_handle == 0 || dst_handle == 0) {
+        ALOGE("nv12_10: RGA import GraphicBuffer error!\n");
+    } else {
+        src = wrapbuffer_handle(src_handle, (int)src_buf->getWidth(),
+                                            (int)src_buf->getHeight(),
+                                            (int)src_buf->getPixelFormat());
+        dst = wrapbuffer_handle(dst_handle, (int)dstBufferRGA[yuvIndex]->getWidth(),
+                                            (int)dstBufferRGA[yuvIndex]->getHeight(),
+                                            (int)dstBufferRGA[yuvIndex]->getPixelFormat());
+
+        ret = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0);
+        if (ret != IM_STATUS_SUCCESS) {
+            ALOGE("nv12_10: RGA run fail! src[x=%d,y=%d,w=%d,h=%d,ws=%d,format=0x%x], "
+                                    "dst[x=%d,y=%d,w=%d,h=%d,ws=%d,format=0x%x]\n",
+                                    src_rect.x, src_rect.y, src_rect.width, src_rect.height,
+                                    src_buf->getStride(), src_buf->getPixelFormat(),
+                                    dst_rect.x, dst_rect.y, dst_rect.width, dst_rect.height,
+                                    dstBufferRGA[yuvIndex]->getStride(), dstBufferRGA[yuvIndex]->getPixelFormat());
+            ALOGE("nv12_10: RGA running failed, %s\n", imStrError((IM_STATUS)ret));
+        }
+    }
+
+    if (src_handle > 0)
+        releasebuffer_handle(src_handle);
+    if (dst_handle > 0)
+        releasebuffer_handle(dst_handle);
+
+    return dstBufferRGA[yuvIndex];
+}
+
+#endif
+
+#if (RK_NV12_10_TO_P010_BY_NEON | RK_NV12_10_TO_NV12_BY_NEON)
+
+#define HAL_PIXEL_FORMAT_YCrCb_NV12 0x15
+#define HAL_PIXEL_FORMAT_YCrCb_NV12_10 0x17
+//#define HAL_PIXEL_FORMAT_YCBCR_P010 0x36
+
+#define ALIGN(val, align) (((val) + ((align) - 1)) & ~((align) - 1))
+#define ALIGN_DOWN(value, base)        (value & (~(base-1)))
+
+#define MAX_DST_BUFFER_NUM  2
+sp<GraphicBuffer> dstBufferCache[MAX_DST_BUFFER_NUM];
+
+#include <dlfcn.h>
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+
+typedef void (*__rockchipxxx)(u8 *src, u8 *dst, int w, int h, int srcStride, int dstStride, int area);
+
+#if RK_NV12_10_TO_P010_BY_NEON
+#define RK_XXX_PATH         "/system/lib64/librockchipxxx.so"
+#define dstBufferFormat  HAL_PIXEL_FORMAT_YCBCR_P010  //HAL_PIXEL_FORMAT_YCrCb_NV12_10
+#define dstBufferUsage  GraphicBuffer::USAGE_HW_TEXTURE
+
+void memcpy_to_p010(void * src_vaddr, void *dst_vaddr, int w, int h, int src_stride) {
+    static void* dso = NULL;
+    static __rockchipxxx rockchipxxx = NULL;
+
+    if (dso == NULL) {
+        dso = dlopen(RK_XXX_PATH, RTLD_NOW | RTLD_LOCAL);
+    }
+    if (dso == 0) {
+        ALOGE("nv12_10: can't not find %s ! error=%s \n",RK_XXX_PATH,dlerror());
+        return ;
+    }
+
+    if (rockchipxxx == NULL) {
+        rockchipxxx = (__rockchipxxx)dlsym(dso, "_Z11rockchipxxxPhS_iiiii");
+    }
+    if (rockchipxxx == NULL) {
+        ALOGE("nv12_10: can't not find target function in %s ! \n",RK_XXX_PATH);
+        dlclose(dso);
+        return ;
+    }
+
+    int src_w = 0;
+    if (src_stride < (int)(ALIGN(w, 64) * 1.25)) {
+        int w_tmp = static_cast<int>(floor(static_cast<float>(src_stride) / 1.25));
+        src_w = ALIGN_DOWN(w_tmp, 64);
+        ALOGW("nv12_10 Warning[%s,%d]: src_w=%d align_w=%d src_stride=%d!\n",
+                                __FUNCTION__,__LINE__, w, src_w, src_stride);
+    } else {
+        src_w = ALIGN(w, 64);
+    }
+    rockchipxxx((u8*)src_vaddr, (u8*)dst_vaddr, src_w, h, src_stride, src_w * 2, 0);
+}
+#endif
+
+#if RK_NV12_10_TO_NV12_BY_NEON
+#define RK_XXX_PATH         "/system/lib/librockchipxxx.so"
+#define dstBufferFormat  HAL_PIXEL_FORMAT_YCrCb_NV12  //HAL_PIXEL_FORMAT_YCrCb_NV12_10
+#define dstBufferUsage  GraphicBuffer::USAGE_HW_TEXTURE
+
+void memcpy_to_NV12(void * src_vaddr, void *dst_vaddr, int w, int h, int src_stride) {
+    static void* dso = NULL;
+    static __rockchipxxx rockchipxxx = NULL;
+
+    if (dso == NULL)
+        dso = dlopen(RK_XXX_PATH, RTLD_NOW | RTLD_LOCAL);
+    if (dso == 0) {
+        ALOGE("nv12_10: can't not find %s ! error=%s \n",RK_XXX_PATH,dlerror());
+        return ;
+    }
+
+    if (rockchipxxx == NULL)
+        rockchipxxx = (__rockchipxxx)dlsym(dso, "_Z15rockchipxxx3288PhS_iiiii");
+    if (rockchipxxx == NULL) {
+        ALOGE("nv12_10: can't not find target function in %s ! \n",RK_XXX_PATH);
+        dlclose(dso);
+        return ;
+    }
+
+    int src_w = 0;
+    if (src_stride < (int)(ALIGN(w, 32) * 1.25)) {
+        int w_tmp = static_cast<int>(floor(static_cast<float>(src_stride) / 1.25));
+        src_w = ALIGN_DOWN(w_tmp, 32);
+        ALOGW("nv12_10 Warning[%s,%d]: src_w=%d align_w=%d src_stride=%d!\n",
+                                __FUNCTION__,__LINE__, w, src_w, src_stride);
+    } else {
+        src_w = ALIGN(w, 32);
+    }
+    rockchipxxx((u8*)src_vaddr, (u8*)dst_vaddr, src_w, h, src_stride, w, 0);
+}
+#endif
+
+const sp<GraphicBuffer> & compatible_rk_nv12_10_format(const sp<GraphicBuffer>& srcBuffer,uint32_t dstWidth,uint32_t dstHeight) {
+    static int yuvcnt;
+    int yuvIndex ;
+    yuvcnt ++;
+    yuvIndex = yuvcnt % MAX_DST_BUFFER_NUM;
+
+    if ((dstBufferCache[yuvIndex] != NULL) &&
+        (dstBufferCache[yuvIndex]->getWidth() != dstWidth ||
+        dstBufferCache[yuvIndex]->getHeight() != dstHeight)) {
+        dstBufferCache[yuvIndex] = NULL;
+    }
+    if (dstBufferCache[yuvIndex] == NULL) {
+        ALOGV("nv12_10: sf new GraphicBuffer w:%d h:%d f:0x%x u:0x%x\n",dstWidth, dstHeight, dstBufferFormat, dstBufferUsage);
+        dstBufferCache[yuvIndex] = new GraphicBuffer(dstWidth, dstHeight, dstBufferFormat, dstBufferUsage);
+    }
+
+    void *src_vaddr;
+    void *dst_vaddr;
+    srcBuffer->lock(GRALLOC_USAGE_SW_READ_OFTEN, &src_vaddr);
+    dstBufferCache[yuvIndex]->lock(GRALLOC_USAGE_SW_WRITE_OFTEN|GRALLOC_USAGE_SW_READ_OFTEN, &dst_vaddr);
+
+    int src_stride = 0;
+    auto& mapper = GraphicBufferMapper::get();
+    std::vector<ui::PlaneLayout> plane_layouts;
+    mapper.getPlaneLayouts(srcBuffer->handle, &plane_layouts);
+    for (const auto&plane_layout : plane_layouts) {
+        for (const auto& plane_layout_component : plane_layout.components) {
+            auto type = static_cast<aidl::android::hardware::graphics::common::PlaneLayoutComponentType>
+                                                                    (plane_layout_component.type.value);
+            if(type == aidl::android::hardware::graphics::common::PlaneLayoutComponentType::Y){
+                src_stride = static_cast<int>(plane_layout.strideInBytes);
+                break;
+            }
+        }
+    }
+#if RK_NV12_10_TO_P010_BY_NEON
+    memcpy_to_p010(src_vaddr, dst_vaddr, (int)dstWidth, (int)dstHeight, src_stride);
+#endif
+
+#if RK_NV12_10_TO_NV12_BY_NEON
+    memcpy_to_NV12(src_vaddr, dst_vaddr, (int)dstWidth, (int)dstHeight, src_stride);
+#endif
+
+    srcBuffer->unlock();
+    dstBufferCache[yuvIndex]->unlock();
+
+    return dstBufferCache[yuvIndex];
+}
+
+#endif
 
 std::optional<compositionengine::LayerFE::LayerSettings> LayerFE::prepareClientComposition(
         compositionengine::LayerFE::ClientCompositionTargetSettings& targetSettings) const {
@@ -220,7 +464,27 @@ void LayerFE::prepareBufferStateClientComposition(
         return;
     }
 
+#if (RK_NV12_10_TO_P010_BY_NEON | RK_NV12_10_TO_NV12_BY_NEON | RK_NV12_10_TO_NV12_BY_RGA)
+    if (mSnapshot->externalTexture && mSnapshot->externalTexture->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10) {
+#if RK_NV12_10_TO_NV12_BY_RGA
+        const sp<GraphicBuffer> &dstGraphicBuffer = rgaCopyBit(mSnapshot->externalTexture->getBuffer(), mSnapshot->bufferSize,
+                                                        (int)mSnapshot->externalTexture->getWidth(),
+                                                        (int)mSnapshot->externalTexture->getHeight());
+#else
+        const sp<GraphicBuffer> &dstGraphicBuffer = compatible_rk_nv12_10_format(mSnapshot->externalTexture->getBuffer(),
+                                                        mSnapshot->externalTexture->getWidth(),
+                                                        mSnapshot->externalTexture->getHeight());
+#endif
+        std::shared_ptr<renderengine::ExternalTexture> externalTexture = std::make_shared<renderengine::impl::ExternalTexture>(
+                                                                    dstGraphicBuffer, mSnapshot->mRenderEngineWapper->mRenderEngine,
+                                                                    renderengine::impl::ExternalTexture::Usage::READABLE);
+        layerSettings.source.buffer.buffer = externalTexture;
+    }else{
+        layerSettings.source.buffer.buffer = mSnapshot->externalTexture;
+    }
+#else
     layerSettings.source.buffer.buffer = mSnapshot->externalTexture;
+#endif
     layerSettings.source.buffer.isOpaque = mSnapshot->contentOpaque;
     layerSettings.source.buffer.fence = mSnapshot->acquireFence;
     layerSettings.source.buffer.textureName = mSnapshot->textureName;

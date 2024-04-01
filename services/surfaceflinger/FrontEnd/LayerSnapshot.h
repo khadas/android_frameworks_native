@@ -45,6 +45,13 @@ struct ChildState {
     bool hasValidFrameRate = false;
 };
 
+struct RenderEngineWapper {
+    RenderEngineWapper(renderengine::RenderEngine& renderEngine)
+        : mRenderEngine(renderEngine){}
+
+    renderengine::RenderEngine& mRenderEngine;
+};
+
 // LayerSnapshot stores Layer state used by CompositionEngine and RenderEngine. Composition
 // Engine uses a pointer to LayerSnapshot (as LayerFECompositionState*) and the LayerSettings
 // passed to Render Engine are created using properties stored on this struct.
@@ -80,6 +87,7 @@ struct LayerSnapshot : public compositionengine::LayerFECompositionState {
     Rect bufferSize;
     Rect croppedBufferSize;
     std::shared_ptr<renderengine::ExternalTexture> externalTexture;
+    std::shared_ptr<RenderEngineWapper> mRenderEngineWapper;
     gui::LayerMetadata layerMetadata;
     gui::LayerMetadata relativeLayerMetadata;
     bool hasReadyFrame;

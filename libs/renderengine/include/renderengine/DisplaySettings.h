@@ -89,6 +89,9 @@ struct DisplaySettings {
             aidl::android::hardware::graphics::composer3::RenderIntent::TONE_MAP_COLORIMETRIC;
 
     std::vector<renderengine::BorderRenderInfo> borderInfoList;
+//----rk-code----
+    int display_id = -1;
+//---------------
 };
 
 static inline bool operator==(const DisplaySettings& lhs, const DisplaySettings& rhs) {

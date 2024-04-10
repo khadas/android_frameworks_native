@@ -93,6 +93,9 @@ cc_defaults {
         "librga",
         "libSurfaceFlingerProp",
         "server_configurable_flags",
+//----rk-code----
+        "librkgfx_dc",
+//---------------
     ],
     static_libs: [
         "libaidlcommonsupport",

@@ -27,6 +27,44 @@ rk_ebook_native_soong_cc_defaults {
         },
     },
 }
+
+/**********************Keystone************************/
+soong_config_module_type {
+    name: "rk_projector_native_soong_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "rk_projector_native",
+    bool_variables: ["rk_projector_native_en"],
+    properties: ["cflags"],
+}
+
+rk_projector_native_soong_cc_defaults {
+    name: "rk_projector_native_cc_defaults",
+
+    soong_config_variables: {
+        rk_projector_native_en: {
+            cflags: [
+                "-DKEYSTONE_EFFECT_ENABLE=1",
+            ],
+        },
+    },
+}
+cc_prebuilt_library_shared {
+    vendor_available: true,
+    name: "librkgfx_dc",
+    target: {
+        android_arm: {
+            srcs: ["Keystone/arm/librkgfx_dc.so"],
+        },
+        android_arm64: {
+            srcs: ["Keystone/arm64/librkgfx_dc.so"],
+        },
+    },
+    shared_libs: ["libEGL", "libGLESv2", "libGLESv3", "libc", "libdl", "liblog", "libm", "libstdc++"],
+    strip: {
+        none: true,
+    },
+}
+/**********************Keystone************************/
 //---------------
 
 cc_defaults {
@@ -50,6 +88,9 @@ cc_defaults {
     cflags: [
         "-DGL_GLEXT_PROTOTYPES",
         "-DEGL_EGLEXT_PROTOTYPES",
+//----rk-code----
+        "-DAFTER_ANDROID10=1",
+//---------------
     ],
     shared_libs: [
         "libbase",
@@ -65,6 +106,9 @@ cc_defaults {
         "libui",
         "libutils",
         "libvulkan",
+//----rk-code----
+        "librkgfx_dc",
+//---------------
     ],
 
     static_libs: [
@@ -150,7 +194,8 @@ cc_library_static {
         "librenderengine_defaults",
         "librenderengine_deps",
         //----rk-code----
-        "rk_ebook_native_cc_defaults"
+        "rk_ebook_native_cc_defaults",
+        "rk_projector_native_cc_defaults"
         //---------------
     ],
     double_loadable: true,

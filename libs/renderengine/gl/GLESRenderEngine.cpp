@@ -52,6 +52,12 @@
 #include "ProgramCache.h"
 #include "filters/BlurFilter.h"
 
+//----rk-code----
+#if KEYSTONE_EFFECT_ENABLE
+#include "../Keystone/DC_keystone.h"
+#endif
+//---------------
+
 bool checkGlError(const char* op, int lineNumber) {
     bool errorFound = false;
     GLint error = glGetError();
@@ -471,6 +477,12 @@ GLESRenderEngine::GLESRenderEngine(const RenderEngineCreationArgs& args, EGLDisp
                                           mPlaceholderBuffer, attributes);
     ALOGE_IF(mPlaceholderImage == EGL_NO_IMAGE_KHR, "Failed to create placeholder image: %#x",
              eglGetError());
+
+//----rk-code----
+#if KEYSTONE_EFFECT_ENABLE
+    RKGFX_DC_init(mKeystoneContext);
+#endif
+//---------------
 
     mShadowTexture = std::make_unique<GLShadowTexture>();
 }
@@ -1160,8 +1172,23 @@ void GLESRenderEngine::drawLayersInternal(
     setDisplayMaxLuminance(display.maxLuminance);
     setDisplayColorTransform(display.colorTransform);
 
+//----rk-code----
+#if KEYSTONE_EFFECT_ENABLE
+    mKeystoneContext->displayWidth = display.physicalDisplay.getWidth();
+    mKeystoneContext->displayHeight = display.physicalDisplay.getHeight();
+    mKeystoneContext->displayLeft = display.physicalDisplay.left;
+    mKeystoneContext->displayTop = display.physicalDisplay.top;
+    mKeystoneContext->displayId = display.display_id;
+
+    mat4 mKeystoneMatrix;
+    RKGFX_DC_calculateMVP(mKeystoneContext, display.display_id, &mKeystoneMatrix);
+    const mat4 projectionMatrix =
+            mKeystoneMatrix * ui::Transform(display.orientation).asMatrix4() * mState.projectionMatrix;
+#else
     const mat4 projectionMatrix =
             ui::Transform(display.orientation).asMatrix4() * mState.projectionMatrix;
+#endif
+//---------------
 
     Mesh mesh = Mesh::Builder()
                         .setPrimitive(Mesh::TRIANGLE_FAN)
@@ -1298,6 +1325,11 @@ void GLESRenderEngine::drawLayersInternal(
             disableTexturing();
         }
     }
+//----rk-code----
+#if KEYSTONE_EFFECT_ENABLE
+    RKGFX_DC_draw_mask(mKeystoneContext);
+#endif
+//---------------
 
     base::unique_fd drawFence = flush();
 
@@ -1376,7 +1408,13 @@ void GLESRenderEngine::setDisplayMaxLuminance(const float maxLuminance) {
 void GLESRenderEngine::setupLayerTexturing(const Texture& texture) {
     GLuint target = texture.getTextureTarget();
     glBindTexture(target, texture.getTextureName());
+//----rk-code----
+#if KEYSTONE_EFFECT_ENABLE
+    GLenum filter = GL_LINEAR;
+#else
     GLenum filter = GL_NEAREST;
+#endif
+//---------------
     if (texture.getFiltering()) {
         filter = GL_LINEAR;
     }

@@ -679,6 +679,52 @@ void Layer::preparePerFrameCompositionState() {
     snapshot->fps = mFlinger->getLayerFramerate(systemTime(), getSequence());
 
     if (hasBufferOrSidebandStream()) {
+        //----rk-code----
+        /*
+         * CrashLog:
+         *  F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0xd8 in tid 4347 (surfaceflinger), pid 4347 (surfaceflinger)
+         *  F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+         *  F DEBUG   : Build fingerprint: 'rockchip/rk3576_u/rk3576_u:14/UQ1A.240205.004.B1/eng.wlq.20240410.112921:userdebug/release-keys'
+         *  F DEBUG   : Revision: '0'
+         *  F DEBUG   : ABI: 'arm64'
+         *  F DEBUG   : Timestamp: 2024-04-16 08:30:20.063329633+0000
+         *  F DEBUG   : Process uptime: 28s
+         *  F DEBUG   : Cmdline: /system/bin/surfaceflinger
+         *  F DEBUG   : pid: 4347, tid: 4347, name: surfaceflinger  >>> /system/bin/surfaceflinger <<<
+         *  F DEBUG   : uid: 1000
+         *  F DEBUG   : tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+         *  F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x00000000000000d8
+         *  F DEBUG   : Cause: null pointer dereference
+         *  F DEBUG   :     x0  b40000718eb9e638  x1  b4000072cec132c8  x2  b4000072cec13360  x3  0000007fec0971c8
+         *  F DEBUG   :     x4  0000000000000010  x5  0000000000000000  x6  0000000000000000  x7  0000007fec096a28
+         *  F DEBUG   :     x8  0000000000000000  x9  0000000000000001  x10 0000000000000000  x11 000000000000003f
+         *  F DEBUG   :     x12 00000000000003ff  x13 000000000000003f  x14 b40000719eb645d0  x15 00000000000003ff
+         *  F DEBUG   :     x16 0000005c2c1d0f28  x17 000000736f2ba62c  x18 0000007371dfc000  x19 0000007fec097310
+         *  F DEBUG   :     x20 b4000072cec132c8  x21 b40000718eb9e638  x22 0000000000000000  x23 0000000000000000
+         *  F DEBUG   :     x24 00000073713b8000  x25 0000007fec097300  x26 0000000000000000  x27 b4000072cec132c8
+         *  F DEBUG   :     x28 b40000718eb9e638  x29 0000007fec097220
+         *  F DEBUG   :     lr  0000005c2bdc3850  sp  0000007fec0971e0  pc  0000005c2bdc5bd4  pst 0000000060000000
+         *  F DEBUG   : 13 total frames
+         *  F DEBUG   : backtrace:
+         *  F DEBUG   :       #00 pc 0000000000295bd4  /system/bin/surfaceflinger (android::compositionengine::impl::HwcBufferCache::getHwcSlotAndBuffer(android::sp<android::GraphicBuffer> const&)+620) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #01 pc 000000000029384c  /system/bin/surfaceflinger (android::compositionengine::impl::OutputLayer::writeStateToHWC(bool, bool, unsigned int, bool, bool)+10276) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #02 pc 0000000000266b78  /system/bin/surfaceflinger (android::compositionengine::impl::Output::writeCompositionState(android::compositionengine::CompositionRefreshArgs const&)+688) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #03 pc 0000000000264f74  /system/bin/surfaceflinger (android::compositionengine::impl::Output::present(android::compositionengine::CompositionRefreshArgs const&)+124) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #04 pc 000000000025d754  /system/bin/surfaceflinger (android::compositionengine::impl::CompositionEngine::present(android::compositionengine::CompositionRefreshArgs&)+184) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #05 pc 00000000002176b4  /system/bin/surfaceflinger (android::SurfaceFlinger::composite(android::PhysicalDisplayId, android::ftl::SmallMap<android::PhysicalDisplayId, android::scheduler::FrameTargeter*, 3ul, std::__1::equal_to<android::PhysicalDisplayId> > const&)+2632) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #06 pc 00000000001f3f60  /system/bin/surfaceflinger (android::scheduler::Scheduler::onFrameSignal(android::ICompositor&, android::VsyncId, android::TimePoint)+596) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #07 pc 0000000000018f98  /system/lib64/libutils.so (android::Looper::pollInner(int)+376) (BuildId: 919964170df42fb4f36227f16b36278b)
+         *  F DEBUG   :       #08 pc 0000000000018dc0  /system/lib64/libutils.so (android::Looper::pollOnce(int, int*, int*, void**)+120) (BuildId: 919964170df42fb4f36227f16b36278b)
+         *  F DEBUG   :       #09 pc 00000000001e50c4  /system/bin/surfaceflinger (android::impl::MessageQueue::waitMessage()+84) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #10 pc 00000000001f3d04  /system/bin/surfaceflinger (android::scheduler::Scheduler::run()+28) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #11 pc 000000000025d170  /system/bin/surfaceflinger (main+1792) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
+         *  F DEBUG   :       #12 pc 000000000005f610  /apex/com.android.runtime/lib64/bionic/libc.so (__libc_init+104) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+         */
+        if((mSidebandStream != nullptr) && (mBufferInfo.mBuffer == nullptr) && 
+           snapshot->sidebandStream == nullptr && snapshot->buffer == nullptr){
+           snapshot->sidebandStream = mSidebandStream;
+        }
+        //---------------
         preparePerFrameBufferCompositionState();
     } else {
         preparePerFrameEffectsCompositionState();

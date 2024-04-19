@@ -3358,6 +3358,10 @@ void SurfaceFlinger::buildWindowInfos(std::vector<WindowInfo>& outWindowInfos,
         const auto layerStack = display->getLayerStack();
         const auto info = display->getInputInfo();
 
+	if(layerStack.id ==0 && !display->isPrimary()){
+	  ALOGE("skip external display when layer stack is 0....");
+	  continue;
+	}
         const auto [it, emplaced] = displayInputInfos.try_emplace(layerStack, info);
         if (emplaced) {
             continue;

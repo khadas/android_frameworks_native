@@ -35,7 +35,9 @@ Duration PresentLatencyTracker::trackPendingFrame(TimePoint compositeTime,
         }
 
         if (presentTime == TimePoint::fromNs(Fence::SIGNAL_TIME_INVALID)) {
-            ALOGE("%s: Invalid present fence", __func__);
+            // rk code
+            // ALOGE("%s: Invalid present fence", __func__);
+            // rk code
         } else {
             presentLatency = presentTime - pendingFrame.compositeTime;
         }

@@ -715,9 +715,15 @@ void Layer::preparePerFrameCompositionState() {
          *  F DEBUG   :       #11 pc 000000000025d170  /system/bin/surfaceflinger (main+1792) (BuildId: b13c51a65768b32d3cc4ff888ab9ea4f)
          *  F DEBUG   :       #12 pc 000000000005f610  /apex/com.android.runtime/lib64/bionic/libc.so (__libc_init+104) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
          */
-        if((mSidebandStream != nullptr) && (mBufferInfo.mBuffer == nullptr) && 
-           snapshot->sidebandStream == nullptr && snapshot->buffer == nullptr){
-           snapshot->sidebandStream = mSidebandStream;
+        if((mSidebandStream != nullptr) && (mBufferInfo.mBuffer == nullptr) && snapshot->buffer == nullptr){
+            if(snapshot->sidebandStream == nullptr){
+                snapshot->sidebandStream = mSidebandStream;
+            }else{
+                if(mSidebandStream->handle() && snapshot->sidebandStream->handle() && 
+                   mSidebandStream->handle() != snapshot->sidebandStream->handle()){
+                    snapshot->sidebandStream = mSidebandStream;
+                }
+            }
         }
         //---------------
         preparePerFrameBufferCompositionState();

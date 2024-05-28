@@ -181,6 +181,17 @@ FloatRect OutputLayer::calculateOutputSourceCrop(uint32_t internalDisplayRotatio
     return crop;
 }
 
+//RK code
+static Rect ClipFloatRect2Rect(FloatRect rectf){
+    Rect r;
+    r.left = static_cast<int32_t>(rectf.left);
+    r.top = static_cast<int32_t>(rectf.top);
+    r.right = static_cast<int32_t>(rectf.right);
+    r.bottom = static_cast<int32_t>(rectf.bottom);
+    return r;
+}
+//RK code
+
 Rect OutputLayer::calculateOutputDisplayFrame() const {
     const auto& layerState = *getLayerFE().getCompositionState();
     const auto& outputState = getOutput().getState();
@@ -229,7 +240,8 @@ Rect OutputLayer::calculateOutputDisplayFrame() const {
         geomLayerBounds.right += outset;
         geomLayerBounds.bottom += outset;
     }
-    Rect frame{layerTransform.transform(reduce(geomLayerBounds, activeTransparentRegion))};
+    //RenderEngine will not round rect, HWC must use clip instead of round.
+    Rect frame = ClipFloatRect2Rect(layerTransform.transform(reduce(geomLayerBounds, activeTransparentRegion)));
     if (!frame.intersect(outputState.layerStackSpace.getContent(), &frame)) {
         frame.clear();
     }

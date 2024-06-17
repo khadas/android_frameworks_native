@@ -62,6 +62,8 @@ private:
     std::shared_ptr<TimeStats> mTimeStats;
     bool mNeedsAnotherUpdate = false;
     nsecs_t mRefreshStartTime = 0;
+    static bool mLastMirrorDispplay;
+    static bool mCurrentMirrorDispplay;
 };
 
 std::unique_ptr<compositionengine::CompositionEngine> createCompositionEngine();

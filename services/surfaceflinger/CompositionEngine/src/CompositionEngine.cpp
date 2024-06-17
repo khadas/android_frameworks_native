@@ -20,6 +20,7 @@
 #include <compositionengine/OutputLayer.h>
 #include <compositionengine/impl/CompositionEngine.h>
 #include <compositionengine/impl/Display.h>
+#include <cutils/properties.h>
 
 #include <renderengine/RenderEngine.h>
 #include <utils/Trace.h>
@@ -38,6 +39,9 @@ namespace android::compositionengine {
 CompositionEngine::~CompositionEngine() = default;
 
 namespace impl {
+
+bool CompositionEngine::mLastMirrorDispplay = true;
+bool CompositionEngine::mCurrentMirrorDispplay = true;
 
 std::unique_ptr<compositionengine::CompositionEngine> createCompositionEngine() {
     return std::make_unique<CompositionEngine>();
@@ -137,6 +141,26 @@ void CompositionEngine::preComposition(CompositionRefreshArgs& args) {
         }
     }
 
+    //check display contents
+    std::unordered_map<uint64_t, int> count;
+    mCurrentMirrorDispplay =  true;
+    for (auto& layer : args.layers) {
+        if(!layer->isVideoLayer()) {
+            uint64_t bufferId = layer->getBuffer() == nullptr ? (uint64_t)-1 : layer->getBuffer()->getId();
+            count[bufferId]++;
+        }
+    }
+
+    for (auto& pair : count) {
+        if (pair.second % 2 != 0) {
+            mCurrentMirrorDispplay = false;
+        }
+    }
+
+    if (mLastMirrorDispplay != mCurrentMirrorDispplay) {
+        property_set("vendor.hwc.mirror_display", mCurrentMirrorDispplay ? "true" : "false");
+        mLastMirrorDispplay = mCurrentMirrorDispplay;
+    }
     mNeedsAnotherUpdate = needsAnotherUpdate;
 }
 

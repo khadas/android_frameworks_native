@@ -27,6 +27,11 @@
 #include <processgroup/processgroup.h>
 #include <utils/Trace.h>
 
+#include <android-base/properties.h>
+#include <linux/sched.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
 #include "gl/GLESRenderEngine.h"
 
 using namespace std::chrono_literals;
@@ -74,8 +79,50 @@ status_t RenderEngineThreaded::setSchedFifo(bool enabled) {
     if (sched_setscheduler(0, sched_policy, &param) != 0) {
         return -errno;
     }
+
+    setSchedAttr(enabled);
+
     return NO_ERROR;
 }
+
+status_t RenderEngineThreaded::setSchedAttr(bool enabled) {
+    static const unsigned int kUclampMin =
+            base::GetUintProperty<unsigned int>("ro.surface_flinger.uclamp.min", 0U);
+
+    if (!kUclampMin) {
+        // uclamp.min set to 0 (default), skip setting
+        return NO_ERROR;
+    }
+
+    // Currently, there is no wrapper in bionic: b/183240349.
+    struct sched_attr {
+        uint32_t size;
+        uint32_t sched_policy;
+        uint64_t sched_flags;
+        int32_t sched_nice;
+        uint32_t sched_priority;
+        uint64_t sched_runtime;
+        uint64_t sched_deadline;
+        uint64_t sched_period;
+        uint32_t sched_util_min;
+        uint32_t sched_util_max;
+    };
+
+    sched_attr attr = {};
+    attr.size = sizeof(attr);
+
+    attr.sched_flags = (SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP);
+    attr.sched_util_min = enabled ? kUclampMin : 0;
+    attr.sched_util_max = 1024;
+
+    if (syscall(__NR_sched_setattr, 0, &attr, 0)) {
+        ALOGW("RKSupport: Failed to set setSchedAttr min=%d max=%d!", attr.sched_util_min, attr.sched_util_max);
+        return -errno;
+    }
+
+    return NO_ERROR;
+}
+
 
 // NO_THREAD_SAFETY_ANALYSIS is because std::unique_lock presently lacks thread safety annotations.
 void RenderEngineThreaded::threadMain(CreateInstanceFactory factory) NO_THREAD_SAFETY_ANALYSIS {

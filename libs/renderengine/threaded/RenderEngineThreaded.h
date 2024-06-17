@@ -81,6 +81,7 @@ private:
     void threadMain(CreateInstanceFactory factory);
     void waitUntilInitialized() const;
     static status_t setSchedFifo(bool enabled);
+    static status_t setSchedAttr(bool enabled);
 
     // No-op. This method is only called on leaf implementations of RenderEngine.
     void useProtectedContext(bool) override {}

@@ -3647,6 +3647,18 @@ void SurfaceFlinger::processDisplayChangesLocked() {
         for (size_t i = 0; i < curr.size(); i++) {
             const wp<IBinder>& displayToken = curr.keyAt(i);
             if (draw.indexOfKey(displayToken) < 0) {
+                //-------rk-code-----
+                //RK: onHotplug should be called even before processDisplayAdded.
+                //    In fast unplug-plug, SF delete PhysicalDisplay that is needed here,
+                //    causing display not found in HwComposer
+                //    Defect #490835: 连着DP线重启，开机后DP端不显示
+                const DisplayDeviceState& currentState = curr[i];
+                if(getHwComposer().fromPhysicalDisplayId(currentState.physical->id)!=currentState.physical->hwcDisplayId){
+                    if (const auto& physical = currentState.physical) {
+                        getHwComposer().onHotplug(physical->hwcDisplayId, hal::Connection::CONNECTED);
+                    }
+                }
+                //------------
                 processDisplayAdded(displayToken, curr[i]);
             }
         }

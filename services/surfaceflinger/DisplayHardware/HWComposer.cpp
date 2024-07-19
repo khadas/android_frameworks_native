@@ -932,6 +932,14 @@ std::optional<DisplayIdentificationInfo> HWComposer::onHotplugConnect(
                 ALOGE("Failed to parse identification data for display %" PRIu64, hwcDisplayId);
             }
         }
+        //-------rk-code-----
+        //RK: onHotplugConnect should be called even PhysicalDisplay is present.
+        //    In fast unplug-plug, SF will delete PhysicalDisplay after this func,
+        //    causing crash on Display not found in mComposer.
+        //
+        //    Defect #490835: 连着DP线重启，开机后DP端不显示
+        mComposer->onHotplugConnect(hwcDisplayId);
+        //------------
     } else {
         uint8_t port;
         DisplayIdentificationData data;

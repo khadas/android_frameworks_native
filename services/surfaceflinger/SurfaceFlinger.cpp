@@ -2789,33 +2789,36 @@ bool SurfaceFlinger::isHdrLayer(const frontend::LayerSnapshot& snapshot) const {
 
 ui::Rotation SurfaceFlinger::getPhysicalDisplayOrientation(DisplayId displayId,
                                                            bool isPrimary) const {
+    char value_private[PROPERTY_VALUE_MAX];
+    property_get("persist.surface_flinger.primary_display_orientation", value_private, "0");
+    int temp = atoi(value_private);
+    ALOGD("persist.surface_flinger.primary_display_orientation is: %d",temp);
+
     const auto id = PhysicalDisplayId::tryCast(displayId);
     if (!id) {
-        return ui::ROTATION_0;
-    }
-    if (!mIgnoreHwcPhysicalDisplayOrientation &&
-        getHwComposer().getComposer()->isSupported(
-                Hwc2::Composer::OptionalFeature::PhysicalDisplayOrientation)) {
-        switch (getHwComposer().getPhysicalDisplayOrientation(*id)) {
-            case Hwc2::AidlTransform::ROT_90:
+		ALOGD("entry only Primary is: %d",temp);
+		switch (temp) {
+            case 90:
                 return ui::ROTATION_90;
-            case Hwc2::AidlTransform::ROT_180:
+            case 180:
                 return ui::ROTATION_180;
-            case Hwc2::AidlTransform::ROT_270:
+            case 270:
                 return ui::ROTATION_270;
             default:
-                return ui::ROTATION_0;
+                break;
         }
+		return ui::ROTATION_0;
     }
 
-    if (isPrimary) {
-        using Values = SurfaceFlingerProperties::primary_display_orientation_values;
-        switch (primary_display_orientation(Values::ORIENTATION_0)) {
-            case Values::ORIENTATION_90:
+   ALOGD("isPrimary Display is: %d", isPrimary);
+   if (isPrimary) {
+		ALOGD("entry dual dispaly Primary rotation : %d",temp);
+        switch (temp) {
+            case 90:
                 return ui::ROTATION_90;
-            case Values::ORIENTATION_180:
+            case 180:
                 return ui::ROTATION_180;
-            case Values::ORIENTATION_270:
+            case 270:
                 return ui::ROTATION_270;
             default:
                 break;

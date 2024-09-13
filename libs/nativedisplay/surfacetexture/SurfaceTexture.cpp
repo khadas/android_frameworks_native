@@ -313,13 +313,19 @@ void SurfaceTexture::computeTransformMatrix(float outTransform[16], const sp<Gra
                 case PIXEL_FORMAT_BGRA_8888:
                     // We know there's no subsampling of any channels, so we
                     // only need to shrink by a half a pixel.
-                    shrinkAmount = 0.5;
+                    // rk-code：此修改会引入HWC合成与GPU合成效果差异问题，具体表现为
+                    // GPU合成与HWC合成切换过程中，画面会抖动
+                    // shrinkAmount = 0.5;
+                    // rk-code
                     break;
 
                 default:
                     // If we don't recognize the format, we must assume the
                     // worst case (that we care about), which is YUV420.
-                    shrinkAmount = 1.0;
+                    // rk-code：此修改会引入HWC合成与GPU合成效果差异问题，具体表现为
+                    // GPU合成与HWC合成切换过程中，画面会抖动
+                    // shrinkAmount = 1.0;
+                    // rk-code
                     break;
             }
         }

@@ -2314,8 +2314,7 @@ static int DelEarliestTwoBugreport(std::string dir)
     while ((entry = readdir(dp)) != NULL) {
         char subdir[192];
         if (strcmp(".", entry->d_name) == 0 ||
-            strcmp("..", entry->d_name) == 0 ||
-            strstr(entry->d_name, "kernel_panic")) {
+            strcmp("..", entry->d_name) == 0) {
             continue;
         }
         if (strlen(dir.c_str()) + strlen(entry->d_name) > sizeof(subdir))
@@ -2372,28 +2371,28 @@ static int DelEarliestTwoBugreport(std::string dir)
 static void DumpstateLastPanicLogOnly() {
     DurationReporter duration_reporter("DUMPSTATE");
 
-    MYLOGE("========================================================\n");
+    printf("========================================================\n");
     if (ds.pstore_reboot_reason == PSTORE_RB_HARD_LOCK) {
-	    MYLOGE("== Found HARD LOCK issue in pstore files\n");
+	    printf("== Found HARD LOCK issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_SOFT_LOCK) {
-	    MYLOGE("== Found SOFT LOCK issue in pstore files\n");
+	    printf("== Found SOFT LOCK issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_STALL) {
-	    MYLOGE("== Found STALL issue in pstore files\n");
+	    printf("== Found STALL issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_INVALID_VIRT_ADDR) {
-	    MYLOGE("== Found INVALID KERNEL PAGING issue in pstore files\n");
+	    printf("== Found INVALID KERNEL PAGING issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_PANIC) {
-	    MYLOGE("== Found PANIC issue in pstore files\n");
+	    printf("== Found PANIC issue in pstore files\n");
     } else if (ds.pstore_reboot_reason == PSTORE_RB_TASK_HUNG) {
-	    MYLOGE("== Found TASK HUNG issue in pstore files\n");
-    } else if (ds.pstore_reboot_reason == PSTORE_RB_UNKNOW) {
-	    MYLOGE("== No abnormal log in pstore files, maybe a hardware watchdog reset or shutdown\n");
+	    printf("== Found TASK HUNG issue in pstore files\n");
     } else {
-	    MYLOGE("== Strange reboot reason, it's Unexpected\n");
+	    printf("== Strange reboot reason, it's Unexpected[%d]\n", ds.pstore_reboot_reason);
     }
 
-    MYLOGE("========================================================\n");
+    printf("========================================================\n");
 
     DoKmsg();
+    RunCommand("LAST LOGCAT", {"logcat", "-L", "-b", "all", "-v", "threadtime", "-v", "printable",
+                                "-v", "uid", "-d", "*:v"});
     DumpFile("OPP SUMMARY", "/sys/kernel/debug/opp/opp_summary");
     DumpFile("CLOCK TREE", "/sys/kernel/debug/clk/clk_summary");
     DumpFile("CLOCK TREE", "/sys/kernel/debug/pm_genpd/pm_genpd_summary");
@@ -3412,6 +3411,12 @@ void Dumpstate::HandleRunStatus(Dumpstate::RunStatus status) {
                 break;
         }
     }
+    //----rk-change----
+    if (options_->last_panic_dump || options_->android_dump_demand) {
+        android::base::SetProperty("dumpstate.completed", "1");
+        MYLOGE("Run dumpstate finished and set dumpstate.completed to 1!\n");
+    }
+    //-----------------
 }
 void Dumpstate::Cancel() {
     CleanupTmpFiles();
@@ -3435,6 +3440,12 @@ void Dumpstate::Cancel() {
     if (zip_entry_tasks_) {
         zip_entry_tasks_->run(/*do_cancel =*/ true);
     }
+    //----rk-change----
+    if (options_->last_panic_dump || options_->android_dump_demand) {
+        android::base::SetProperty("dumpstate.completed", "1");
+        MYLOGE("set dumpstate.completed to 1 because dumpstate is canceled!\n");
+    }
+    //-----------------
 }
 
 void Dumpstate::PreDumpUiData() {
@@ -3769,12 +3780,11 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
             max_log_size = 300;
         long long int total_size = GetDirectorySize((char *)destination.c_str());
         MYLOGI("total_size (%lld), max log size is %lld\n", total_size, (max_log_size << 20));
-        while (total_size >= (max_log_size << 20)) {
+        if (total_size >= (max_log_size << 20)) {
             DelEarliestTwoBugreport(destination);
             total_size = GetDirectorySize((char *)destination.c_str());
         }
     }
-    android::base::SetProperty("dumpstate.completed", "1");
     //---------------
     return (consent_callback_ != nullptr &&
             consent_callback_->getResult() == UserConsentResult::UNAVAILABLE)

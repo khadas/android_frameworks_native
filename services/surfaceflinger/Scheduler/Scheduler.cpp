@@ -200,7 +200,29 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
 
     // TODO(b/256196556): Choose the frontrunner display.
     FrameTargeters targeters;
-    targeters.try_emplace(pacesetterId, &pacesetterTargeter);
+    /*
+        rk-code:
+        The pacesetter may have changed or been registered anew during commit.
+        pick from Android 15 commit:
+            SF: Fix UAF on pacesetter change during commit
+
+            During commit, the pacesetter's FrameTargeter could be destroyed after a
+            hotplug reconnect or a resolution change, via processDisplayChanged. The
+            reference in Scheduler::onFrameSignal was then dangling, causing a crash
+            when dereferenced later during composite.
+
+            Fixes: 308287117
+            Test: SchedulerTest.onFrameSignalMultipleDisplays
+            Change-Id: I413ee7d9967e731825106ef2b6d37fbfb15516ea
+     */
+    FrameTargeter& pacesetterTargeter_now = *pacesetterOpt->get().targeterPtr;
+    if(&pacesetterTargeter_now.target() != &pacesetterTargeter.target()){
+        pacesetterTargeter_now.beginFrame(beginFrameArgs, *pacesetterOpt->get().schedulePtr);
+        targeters.try_emplace(pacesetterId, &pacesetterTargeter_now);
+    }else{
+        targeters.try_emplace(pacesetterId, &pacesetterTargeter);
+    }
+    // rk-code
 
     for (auto& [id, display] : mDisplays) {
         if (id == pacesetterId) continue;

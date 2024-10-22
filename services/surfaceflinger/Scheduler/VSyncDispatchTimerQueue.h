@@ -147,12 +147,12 @@ private:
     ScheduleResult scheduleLocked(CallbackToken, ScheduleTiming) REQUIRES(mMutex);
 
     static constexpr nsecs_t kInvalidTime = std::numeric_limits<int64_t>::max();
+    std::mutex mutable mMutex;
     std::unique_ptr<TimeKeeper> const mTimeKeeper;
     VsyncSchedule::TrackerPtr mTracker;
     nsecs_t const mTimerSlack;
     nsecs_t const mMinVsyncDistance;
 
-    std::mutex mutable mMutex;
     size_t mCallbackToken GUARDED_BY(mMutex) = 0;
 
     CallbackMap mCallbacks GUARDED_BY(mMutex);
@@ -161,6 +161,8 @@ private:
     // For debugging purposes
     nsecs_t mLastTimerCallback GUARDED_BY(mMutex) = kInvalidTime;
     nsecs_t mLastTimerSchedule GUARDED_BY(mMutex) = kInvalidTime;
+
+    bool mValid GUARDED_BY(mMutex) = false;
 };
 
 } // namespace android::scheduler

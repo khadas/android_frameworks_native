@@ -20,8 +20,8 @@
 
 #include <android-base/stringprintf.h>
 #include <ftl/concat.h>
-#include <utils/Trace.h>
 #include <log/log_main.h>
+#include <utils/Trace.h>
 
 #include <scheduler/TimeKeeper.h>
 
@@ -224,15 +224,18 @@ VSyncDispatchTimerQueue::VSyncDispatchTimerQueue(std::unique_ptr<TimeKeeper> tk,
       : mTimeKeeper(std::move(tk)),
         mTracker(std::move(tracker)),
         mTimerSlack(timerSlack),
-        mMinVsyncDistance(minVsyncDistance) {}
+        mMinVsyncDistance(minVsyncDistance),
+        mValid(true) {}
 
 VSyncDispatchTimerQueue::~VSyncDispatchTimerQueue() {
-    std::lock_guard lock(mMutex);
+    mMutex.lock();
     cancelTimer();
     for (auto& [_, entry] : mCallbacks) {
         ALOGE("Forgot to unregister a callback on VSyncDispatch!");
         entry->ensureNotRunning();
     }
+    mValid = false;
+    mMutex.unlock();
 }
 
 void VSyncDispatchTimerQueue::cancelTimer() {
@@ -296,6 +299,9 @@ void VSyncDispatchTimerQueue::timerCallback() {
     std::vector<Invocation> invocations;
     {
         std::lock_guard lock(mMutex);
+        if (mValid == false) {
+            return;
+        }
         auto const now = mTimeKeeper->now();
         mLastTimerCallback = now;
         for (auto it = mCallbacks.begin(); it != mCallbacks.end(); it++) {

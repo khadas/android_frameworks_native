@@ -54,6 +54,8 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
         cflags = append(cflags,"-DHWC_VIR_DISPLAY_USE_NO_AFBC=1")
     }
 
+    cflags = append(cflags,"-DRK_RFBC_CONVERT_BY_RGA=1")
+
     //将需要区分的环境变量在此区域添加 //....
     return cflags
 }

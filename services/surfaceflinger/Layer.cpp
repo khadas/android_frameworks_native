@@ -4333,9 +4333,8 @@ void Layer::updateSnapshot(bool updateGeometry) {
         snapshot->parentTransform.reset();
     }
 
-#if (RK_NV12_10_TO_P010_BY_NEON | RK_NV12_10_TO_NV12_BY_NEON | RK_NV12_10_TO_NV12_BY_RGA)
-    if (mBufferInfo.mBuffer != nullptr &&
-        mBufferInfo.mBuffer->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10) {
+#if (RK_NV12_10_TO_P010_BY_NEON | RK_NV12_10_TO_NV12_BY_NEON | RK_NV12_10_TO_NV12_BY_RGA | RK_RFBC_CONVERT_BY_RGA)
+    if (mBufferInfo.mBuffer != nullptr) {
         snapshot->mRenderEngineWapper = std::make_shared<surfaceflinger::frontend::RenderEngineWapper>
                                                     (mFlinger->getCompositionEngine().getRenderEngine());
     }

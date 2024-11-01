@@ -27,7 +27,7 @@
 #include <renderengine/impl/ExternalTexture.h>
 #include <ui/GraphicBuffer.h>
 #include <gralloctypes/Gralloc4.h>
-#if RK_NV12_10_TO_NV12_BY_RGA
+#if (RK_NV12_10_TO_NV12_BY_RGA | RK_RFBC_CONVERT_BY_RGA)
 // Use im2d api
 #include <im2d.hpp>
 #endif
@@ -331,6 +331,129 @@ const sp<GraphicBuffer> & compatible_rk_nv12_10_format(const sp<GraphicBuffer>& 
 
 #endif
 
+#if RK_RFBC_CONVERT_BY_RGA
+//From libhardware_rockchip/include/hardware/hardware_rockchip.h
+#define HAL_PIXEL_FORMAT_YUV420_8BIT_RFBC  0x200
+#define HAL_PIXEL_FORMAT_YUV420_10BIT_RFBC 0x201
+#define HAL_PIXEL_FORMAT_YUV422_8BIT_RFBC  0x202
+#define HAL_PIXEL_FORMAT_YUV422_10BIT_RFBC 0x203
+#define HAL_PIXEL_FORMAT_YUV444_8BIT_RFBC  0x204
+#define HAL_PIXEL_FORMAT_YUV444_10BIT_RFBC 0x205
+
+#ifndef HAL_PIXEL_FORMAT_YCrCb_NV12
+#define HAL_PIXEL_FORMAT_YCrCb_NV12 0x15
+#endif
+
+#ifndef ALIGN
+#define ALIGN(val, align) (((val) + ((align) - 1)) & ~((align) - 1))
+#endif
+
+static bool IsRfbcFormat(int halFormat){
+    switch (halFormat)
+    {
+    case HAL_PIXEL_FORMAT_YUV420_8BIT_RFBC:
+    case HAL_PIXEL_FORMAT_YUV422_8BIT_RFBC:
+    case HAL_PIXEL_FORMAT_YUV444_8BIT_RFBC:
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_RFBC:
+    case HAL_PIXEL_FORMAT_YUV422_10BIT_RFBC:
+    // case HAL_PIXEL_FORMAT_YUV444_10BIT_RFBC: //Not supported by RGA yet
+        return true;
+
+    default:
+        return false;
+    }
+
+    return false;
+}
+
+static int HalRfbcToRgaFormat(int halFormat){
+    switch (halFormat)
+    {
+    case HAL_PIXEL_FORMAT_YUV420_8BIT_RFBC:
+        return RK_FORMAT_YCbCr_420_SP;
+    case HAL_PIXEL_FORMAT_YUV422_8BIT_RFBC:
+        return RK_FORMAT_YCbCr_422_SP;
+    case HAL_PIXEL_FORMAT_YUV444_8BIT_RFBC:
+        return RK_FORMAT_YCbCr_444_SP;
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_RFBC:
+        return RK_FORMAT_YCbCr_420_SP_10B;
+    case HAL_PIXEL_FORMAT_YUV422_10BIT_RFBC:
+        return RK_FORMAT_YCbCr_422_SP_10B;
+    // case HAL_PIXEL_FORMAT_YUV444_10BIT_RFBC:
+
+    default:
+        return halFormat;
+    }
+
+    return halFormat;
+}
+
+#define MAX_NO_RFBC_DST_BUFFER_NUM  2
+sp<GraphicBuffer> dstBufferNoRfbc[MAX_NO_RFBC_DST_BUFFER_NUM];
+#define dstConvBufFormat  HAL_PIXEL_FORMAT_YCrCb_NV12
+#define dstBufAllocUsage  GraphicBuffer::USAGE_HW_TEXTURE
+const sp<GraphicBuffer>& ConvertRfbcByRga(sp<GraphicBuffer> src_buf, const Rect& rect, int src_width, int src_height)
+{
+    int ret = 0;
+    rga_buffer_t src;
+    rga_buffer_t dst;
+    rga_buffer_t pat;
+    im_rect src_rect;
+    im_rect dst_rect;
+    im_rect pat_rect;
+
+    memset(&src, 0, sizeof(rga_buffer_t));
+    memset(&dst, 0, sizeof(rga_buffer_t));
+    memset(&pat, 0, sizeof(rga_buffer_t));
+    memset(&src_rect, 0, sizeof(im_rect));
+    memset(&dst_rect, 0, sizeof(im_rect));
+    memset(&pat_rect, 0, sizeof(im_rect));
+
+    dst_rect.x = src_rect.x = rect.left;
+	dst_rect.y = src_rect.y = rect.top;
+	dst_rect.width  = src_rect.width  = rect.right - rect.left;
+	dst_rect.height = src_rect.height = rect.bottom -  rect.top;
+
+    static int yuvcnt;
+    int yuvIndex = 0;
+    yuvcnt ++;
+    yuvIndex = yuvcnt % MAX_NO_RFBC_DST_BUFFER_NUM;
+    uint32_t dst_width = (uint32_t)ALIGN(src_width, 16);
+    uint32_t dst_height = (uint32_t)src_height;
+    if((dstBufferNoRfbc[yuvIndex] != NULL) &&
+        (dst_width != dstBufferNoRfbc[yuvIndex]->getWidth() ||
+         dst_height != dstBufferNoRfbc[yuvIndex]->getHeight()))
+    {
+        dstBufferNoRfbc[yuvIndex] = NULL;
+    }
+    if(dstBufferNoRfbc[yuvIndex] == NULL)
+    {
+        ALOGV("RFBC-Convert: new GraphicBuffer w:%d h:%d f:0x%x u:0x%x\n",
+                src_width, src_height, dstConvBufFormat, dstBufAllocUsage);
+        dstBufferNoRfbc[yuvIndex] = new GraphicBuffer(dst_width, dst_height,
+                                                    dstConvBufFormat, dstBufAllocUsage);
+    }
+
+    src = wrapbuffer_GraphicBuffer(src_buf);
+    src.rd_mode = IM_RKFBC64x4_MODE;
+    src.format = HalRfbcToRgaFormat((int)src_buf->getPixelFormat());
+    dst = wrapbuffer_GraphicBuffer(dstBufferNoRfbc[yuvIndex]);
+
+    ret = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0);
+    if (ret != IM_STATUS_SUCCESS) {
+        ALOGE("RFBC-Convert: RGA run fail! src[x=%d,y=%d,w=%d,h=%d,ws=%d,format=0x%x], "
+                                "dst[x=%d,y=%d,w=%d,h=%d,ws=%d,format=0x%x]\n",
+                                src_rect.x, src_rect.y, src_rect.width, src_rect.height,
+                                src_buf->getStride(), src_buf->getPixelFormat(),
+                                dst_rect.x, dst_rect.y, dst_rect.width, dst_rect.height,
+                                dstBufferNoRfbc[yuvIndex]->getStride(), dstBufferNoRfbc[yuvIndex]->getPixelFormat());
+        ALOGE("RFBC-Convert: RGA running failed, %s\n", imStrError((IM_STATUS)ret));
+    }
+
+    return dstBufferNoRfbc[yuvIndex];
+}
+#endif
+
 std::optional<compositionengine::LayerFE::LayerSettings> LayerFE::prepareClientComposition(
         compositionengine::LayerFE::ClientCompositionTargetSettings& targetSettings) const {
     std::optional<compositionengine::LayerFE::LayerSettings> layerSettings =
@@ -464,6 +587,7 @@ void LayerFE::prepareBufferStateClientComposition(
         return;
     }
 
+    layerSettings.source.buffer.buffer = mSnapshot->externalTexture;
 #if (RK_NV12_10_TO_P010_BY_NEON | RK_NV12_10_TO_NV12_BY_NEON | RK_NV12_10_TO_NV12_BY_RGA)
     if (mSnapshot->externalTexture && mSnapshot->externalTexture->getPixelFormat() == HAL_PIXEL_FORMAT_YCrCb_NV12_10) {
 #if RK_NV12_10_TO_NV12_BY_RGA
@@ -479,12 +603,22 @@ void LayerFE::prepareBufferStateClientComposition(
                                                                     dstGraphicBuffer, mSnapshot->mRenderEngineWapper->mRenderEngine,
                                                                     renderengine::impl::ExternalTexture::Usage::READABLE);
         layerSettings.source.buffer.buffer = externalTexture;
-    }else{
-        layerSettings.source.buffer.buffer = mSnapshot->externalTexture;
     }
-#else
-    layerSettings.source.buffer.buffer = mSnapshot->externalTexture;
 #endif
+
+#if RK_RFBC_CONVERT_BY_RGA
+    if (mSnapshot->externalTexture && IsRfbcFormat(mSnapshot->externalTexture->getPixelFormat())) {
+        const sp<GraphicBuffer> &dstGraphicBuffer = ConvertRfbcByRga(mSnapshot->externalTexture->getBuffer(),
+                                                                    mSnapshot->bufferSize,
+                                                                    (int)mSnapshot->externalTexture->getWidth(),
+                                                                    (int)mSnapshot->externalTexture->getHeight());
+        std::shared_ptr<renderengine::ExternalTexture> externalTexture = std::make_shared<renderengine::impl::ExternalTexture>(
+                                                                    dstGraphicBuffer, mSnapshot->mRenderEngineWapper->mRenderEngine,
+                                                                    renderengine::impl::ExternalTexture::Usage::READABLE);
+        layerSettings.source.buffer.buffer = externalTexture;
+    }
+#endif
+
     layerSettings.source.buffer.isOpaque = mSnapshot->contentOpaque;
     layerSettings.source.buffer.fence = mSnapshot->acquireFence;
     layerSettings.source.buffer.textureName = mSnapshot->textureName;

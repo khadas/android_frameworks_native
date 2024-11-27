@@ -4286,10 +4286,6 @@ bool Layer::hasBlur() const {
     return getBackgroundBlurRadius() > 0 || getDrawingState().blurRegions.size() > 0;
 }
 
-#if (RK_NV12_10_TO_P010_BY_NEON | RK_NV12_10_TO_NV12_BY_NEON | RK_NV12_10_TO_NV12_BY_RGA)
-#define HAL_PIXEL_FORMAT_YCrCb_NV12_10 0x17
-#endif
-
 void Layer::updateSnapshot(bool updateGeometry) {
     if (!getCompositionEngineLayerFE()) {
         return;

@@ -215,12 +215,17 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
             Test: SchedulerTest.onFrameSignalMultipleDisplays
             Change-Id: I413ee7d9967e731825106ef2b6d37fbfb15516ea
      */
-    FrameTargeter& pacesetterTargeter_now = *pacesetterOpt->get().targeterPtr;
-    if(&pacesetterTargeter_now.target() != &pacesetterTargeter.target()){
-        pacesetterTargeter_now.beginFrame(beginFrameArgs, *pacesetterOpt->get().schedulePtr);
-        targeters.try_emplace(pacesetterId, &pacesetterTargeter_now);
-    }else{
-        targeters.try_emplace(pacesetterId, &pacesetterTargeter);
+    //
+    const auto pacesetterOpt_now = mDisplays.get(pacesetterId);
+    if(!pacesetterOpt_now.has_value()) return;
+    FrameTargeter& pacesetterTargeter_now = *pacesetterOpt_now->get().targeterPtr;
+    if(pacesetterOpt_now->get().targeterPtr){
+        if(&pacesetterTargeter_now.target() != &pacesetterTargeter.target()){
+            pacesetterTargeter_now.beginFrame(beginFrameArgs, *pacesetterOpt_now->get().schedulePtr);
+            targeters.try_emplace(pacesetterId, &pacesetterTargeter_now);
+        }else{
+            targeters.try_emplace(pacesetterId, &pacesetterTargeter);
+        }
     }
     // rk-code
 

@@ -935,6 +935,19 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
         });
     }
 
+    //-------rk-code-begin-----
+    // Check hotplug events after scheduler init, so no event will be missed.
+    bool isHotplugPending = false;
+    {
+        std::lock_guard<std::mutex> lock(mHotplugMutex);
+        isHotplugPending = mPendingHotplugEvents.size()>0;
+    }
+
+    if(mScheduler && isHotplugPending){
+        mScheduler->scheduleConfigure();
+    }
+    //-------rk-code-end-----
+
     ALOGV("Done initializing");
 }
 

@@ -3491,6 +3491,21 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         need_change_prio = false;
     }
 
+    if (ds.options_->android_dump_demand || ds.options_->last_panic_dump) {
+        std::string destination = ds.CalledByApi()
+                                      ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
+                                      : ds.bugreport_internal_dir_.c_str();
+        long long int max_log_size = (long long int)android::base::GetIntProperty("dumpstate.max_log_size", 300);
+        if (max_log_size <= 0)
+            max_log_size = 300;
+        long long int total_size = GetDirectorySize((char *)destination.c_str());
+        MYLOGI("total_size (%lld), max log size is %lld\n", total_size, (max_log_size << 20));
+        if (total_size >= (max_log_size << 20)) {
+            DelEarliestTwoBugreport(destination);
+            total_size = GetDirectorySize((char *)destination.c_str());
+        }
+    }
+
     if (options_->android_dump_demand) {
         android_bugrepot_reason = android::base::GetProperty("sys.bugreport_reason", "unknown");
         android_dropbox_time = android::base::GetProperty("sys.bugreport_time", "0");
@@ -3770,22 +3785,6 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     anr_data_.clear();
     shutdown_checkpoints_.clear();
 
-    //----rk-change----
-    if (ds.options_->android_dump_demand || ds.options_->last_panic_dump) {
-        std::string destination = ds.CalledByApi()
-                                      ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
-                                      : ds.bugreport_internal_dir_.c_str();
-        long long int max_log_size = (long long int)android::base::GetIntProperty("dumpstate.max_log_size", 300);
-        if (max_log_size <= 0)
-            max_log_size = 300;
-        long long int total_size = GetDirectorySize((char *)destination.c_str());
-        MYLOGI("total_size (%lld), max log size is %lld\n", total_size, (max_log_size << 20));
-        if (total_size >= (max_log_size << 20)) {
-            DelEarliestTwoBugreport(destination);
-            total_size = GetDirectorySize((char *)destination.c_str());
-        }
-    }
-    //---------------
     return (consent_callback_ != nullptr &&
             consent_callback_->getResult() == UserConsentResult::UNAVAILABLE)
                ? USER_CONSENT_TIMED_OUT

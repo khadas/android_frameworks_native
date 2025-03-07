@@ -949,7 +949,10 @@ void SkiaRenderEngine::drawLayersInternal(
             // if the layer's buffer has a fence, then we must must respect the fence prior to using
             // the buffer.
             if (layer.source.buffer.fence != nullptr) {
-                waitFence(grContext, layer.source.buffer.fence->get());
+                //RK-OPT: Save time by avoiding unnecessary calls to waitGpuFence()
+                if (layer.source.buffer.fence->getStatus() == Fence::Status::Unsignaled) {
+                    waitFence(grContext, layer.source.buffer.fence->get());
+                }
             }
 
             // isOpaque means we need to ignore the alpha in the image,

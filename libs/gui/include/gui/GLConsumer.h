@@ -507,6 +507,9 @@ private:
     // mode and releaseTexImage() has been called
     static sp<GraphicBuffer> sReleasedTexImageBuffer;
     sp<EglImage> mReleasedTexImage;
+
+    // RK-OPT: avoid to shrink the crop region
+    static bool mDisableCropShrink;
 };
 
 // ----------------------------------------------------------------------------

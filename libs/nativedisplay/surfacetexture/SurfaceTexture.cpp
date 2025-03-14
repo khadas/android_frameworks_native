@@ -22,6 +22,7 @@
 #include <math/mat4.h>
 #include <system/window.h>
 #include <utils/Trace.h>
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -32,6 +33,18 @@ namespace android {
 #define SFT_LOGE(x, ...) ALOGE("[%s] " x, mName.string(), ##__VA_ARGS__)
 
 static const mat4 mtxIdentity;
+
+// RK-code: use "debug.sf.disable_shrink" to disable shrinkAmount
+#define RK_DISABLE_BUFFER_SHRINK_PROP "debug.sf.disable_shrink"
+
+static bool getDisableShrinkProp() {
+    char prop[PROPERTY_VALUE_MAX];
+    property_get(RK_DISABLE_BUFFER_SHRINK_PROP, prop, "0");
+    return (atoi(prop) > 0);
+}
+
+bool SurfaceTexture::mDisableCropShrink = getDisableShrinkProp();
+// RK-code
 
 SurfaceTexture::SurfaceTexture(const sp<IGraphicBufferConsumer>& bq, uint32_t tex,
                                uint32_t texTarget, bool useFenceSync, bool isControlledByApp)
@@ -296,7 +309,10 @@ void SurfaceTexture::computeTransformMatrix(float outTransform[16], const sp<Gra
         float bufferWidth = buf->getWidth();
         float bufferHeight = buf->getHeight();
         float shrinkAmount = 0.0f;
-        if (filtering) {
+        // RK-code：shrinkAmount会引入HWC合成与GPU合成效果差异问题，具体表现为
+        // GPU合成与HWC合成切换过程中，画面会抖动
+        // 通过 mDisableCropShrink 来禁用 shrinkAmount
+        if (filtering && !mDisableCropShrink) {
             // In order to prevent bilinear sampling beyond the edge of the
             // crop rectangle we may need to shrink it by 2 texels in each
             // dimension.  Normally this would just need to take 1/2 a texel
@@ -313,19 +329,13 @@ void SurfaceTexture::computeTransformMatrix(float outTransform[16], const sp<Gra
                 case PIXEL_FORMAT_BGRA_8888:
                     // We know there's no subsampling of any channels, so we
                     // only need to shrink by a half a pixel.
-                    // rk-code：此修改会引入HWC合成与GPU合成效果差异问题，具体表现为
-                    // GPU合成与HWC合成切换过程中，画面会抖动
-                    // shrinkAmount = 0.5;
-                    // rk-code
+                    shrinkAmount = 0.5;
                     break;
 
                 default:
                     // If we don't recognize the format, we must assume the
                     // worst case (that we care about), which is YUV420.
-                    // rk-code：此修改会引入HWC合成与GPU合成效果差异问题，具体表现为
-                    // GPU合成与HWC合成切换过程中，画面会抖动
-                    // shrinkAmount = 1.0;
-                    // rk-code
+                    shrinkAmount = 1.0;
                     break;
             }
         }

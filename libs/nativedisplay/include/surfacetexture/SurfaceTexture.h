@@ -465,6 +465,9 @@ protected:
      */
     ImageConsumer mImageConsumer;
 
+    // RK-OPT: avoid to shrink the crop region
+    static bool mDisableCropShrink;
+
     friend class ImageConsumer;
     friend class EGLConsumer;
 };

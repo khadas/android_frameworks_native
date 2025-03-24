@@ -2258,53 +2258,13 @@ static long long int GetDirectorySize(char *dir)
     return totalSize;
 }
 
-static int remove_dir(char * del_dir)
-{
-    struct stat statbuf;
-    struct dirent *del_de = NULL;
-    DIR *del_dp;
-    int ret = 0;
-
-    if ((del_dp = opendir(del_dir)) == NULL) {
-        MYLOGE("Cannot open dir: %s\n", del_dir);
-        return -1;
-    }
-    while ((del_de = readdir(del_dp)) != NULL) {
-        if ( (strcmp( del_de->d_name, "." ) == 0) || (strcmp( del_de->d_name, ".." ) == 0) )
-            continue;
-        std::string del_file = android::base::StringPrintf("%s/%s", del_dir, del_de->d_name);
-        lstat(del_file.c_str(), &statbuf);
-        if (S_ISDIR(statbuf.st_mode)) {
-            remove_dir((char*)del_file.c_str());
-            MYLOGE("Remove directory [%s], it's Strange\n", del_file.c_str());
-        } else {
-            if (remove(del_file.c_str())) {
-                MYLOGE("Failed to emove file [%s]\n", del_file.c_str());
-                ret--;
-            } else {
-                MYLOGI("Remove file [%s]\n", del_file.c_str());
-            }
-        }
-    }
-    closedir(del_dp);
-    if (rmdir(del_dir)) {
-        ret--;
-        MYLOGE("Failed to emove directory [%s][ret=%d]\n", del_dir, ret);
-    } else {
-        MYLOGI("Remove directory [%s]\n", del_dir);
-    }
-    return ret;
-}
-
 static int DelEarliestTwoBugreport(std::string dir)
 {
     DIR *dp;
     struct dirent *entry;
     struct stat statbuf;
-    long int earliest_time = -1;
-    long int earliest_2nd_time = -1;
-    char del_dir[192] = {0};
-    char del_2nd_dir[192] = {0};
+    std::vector<std::pair<std::string, time_t>> regular_files_to_delete;
+    std::string rklog_path;
 
     if ((dp = opendir(dir.c_str())) == NULL) {
         MYLOGE("Cannot open bugreports dir: %s\n", dir.c_str());
@@ -2319,53 +2279,172 @@ static int DelEarliestTwoBugreport(std::string dir)
         }
         if (strlen(dir.c_str()) + strlen(entry->d_name) > sizeof(subdir))
             continue;
-        sprintf(subdir, "%s/%s", dir.c_str(), entry->d_name);
-        lstat(subdir, &statbuf);
-        if (earliest_time == -1) {
-           earliest_time = statbuf.st_ctime;
-           strcpy(del_dir, subdir);
-        } else if (statbuf.st_ctime < earliest_time) {
-           earliest_time = statbuf.st_ctime;
-            strcpy(del_dir, subdir);
-        } else if (earliest_2nd_time == -1) {
-            earliest_2nd_time = statbuf.st_ctime;
-            strcpy(del_2nd_dir, subdir);
-        } else if (statbuf.st_ctime <= earliest_2nd_time) {
-            earliest_2nd_time = statbuf.st_ctime;
-            strcpy(del_2nd_dir, subdir);
+        snprintf(subdir, sizeof(subdir), "%s/%s", dir.c_str(), entry->d_name);
+        if (lstat(subdir, &statbuf) != 0) continue;
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            continue; // Skip directories
+        }
+
+        std::string filename(entry->d_name);
+
+        if (filename.find("-rklogs.txt") != std::string::npos) {
+            // // Handle rklogs files
+            rklog_path = subdir;
+        } else {
+            // Handle regular files
+            if (regular_files_to_delete.size() < 2) {
+                regular_files_to_delete.emplace_back(subdir, statbuf.st_ctime);
+            } else {
+                // Find the latest mtime in the current list
+                int latest_index = (regular_files_to_delete[0].second >= regular_files_to_delete[1].second) ? 0 : 1;
+                // Replace the latest mtime file if the current file is older
+                if (statbuf.st_ctime < regular_files_to_delete[latest_index].second) {
+                    regular_files_to_delete[latest_index] = {subdir, statbuf.st_ctime};
+                }
+            }
         }
     }
     closedir(dp);
 
-    if (del_dir[0] == 0) {
-        MYLOGE("cannot find directory to delete\n");
-        return -1;
-    }
-    lstat(del_dir, &statbuf);
-    if (S_ISREG(statbuf.st_mode)) {
-        MYLOGI("delete file %s\n", del_dir);
-        remove(del_dir);
-    } else {
-        MYLOGI("delete directory %s\n", del_dir);
-        remove_dir(del_dir);
+    // Delete the regular files
+    for (const auto& file : regular_files_to_delete) {
+        if (unlink(file.first.c_str()) == 0) {
+            MYLOGI("Deleted old regular file: %s\n", file.first.c_str());
+        } else {
+            MYLOGE("Failed to delete %s: %s\n", file.first.c_str(), strerror(errno));
+        }
     }
 
-    if (del_2nd_dir[0] == 0) {
-        MYLOGE("cannot find second directory to delete\n");
-        return -1;
-    }
-    lstat(del_2nd_dir, &statbuf);
-    if (S_ISREG(statbuf.st_mode)) {
-        MYLOGI("delete file %s\n", del_2nd_dir);
-        remove(del_2nd_dir);
-    } else {
-        MYLOGI("delete directory %s\n", del_2nd_dir);
-        remove_dir(del_2nd_dir);
+    // Check if rklogs size exceeds the maximum allowed size
+    long long max_rklogs_size = android::base::GetIntProperty(
+        "dumpstate.rklogs.max_size", 5);
+
+    // hadle dumpstate-rklogs.txt
+    if (!rklog_path.empty()) {
+        if (stat(rklog_path.c_str(), &statbuf) != 0) {
+            MYLOGE("Failed to stat %s: %s\n", rklog_path.c_str(), strerror(errno));
+            return -1;
+        }
+
+        if (statbuf.st_size > (max_rklogs_size << 20)) {
+            MYLOGI("Truncating %s (size: %.2fMB)\n", rklog_path.c_str(), statbuf.st_size / (1024.0 * 1024.0));
+
+            std::string tmp_path = rklog_path + ".tmp";
+            auto cleanup_temp = [&tmp_path]() {
+                if (!tmp_path.empty()) {
+                    unlink(tmp_path.c_str());
+                }
+            };
+
+            android::base::unique_fd src_fd(TEMP_FAILURE_RETRY(open(rklog_path.c_str(), O_RDWR | O_CLOEXEC)));
+            if (src_fd == -1) {
+                MYLOGE("Failed to open source file: %s (%s)\n", rklog_path.c_str(), strerror(errno));
+                return -1;
+            }
+
+            android::base::unique_fd dst_fd(TEMP_FAILURE_RETRY(open(tmp_path.c_str(),
+                O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, statbuf.st_mode & 0777)));
+            if (dst_fd == -1) {
+                MYLOGE("Failed to create temp file: %s (%s)\n", tmp_path.c_str(), strerror(errno));
+                return -1;
+            }
+
+            if (fchown(dst_fd, statbuf.st_uid, statbuf.st_gid) == -1) {
+                MYLOGW("Failed to set ownership: %s\n", strerror(errno));
+            }
+
+            const off_t keep_offset = ((statbuf.st_size / 10) > (512 * 1024)) ? (statbuf.st_size / 10) : (512 * 1024);
+            if (lseek(src_fd, keep_offset, SEEK_SET) == -1) {
+                MYLOGE("Failed to seek in source file: %s (%s)\n", rklog_path.c_str(), strerror(errno));
+                cleanup_temp();
+                return -1;
+            }
+
+            const off_t remain_size = statbuf.st_size - keep_offset;
+            ssize_t copied = 0;
+            char buffer[4096];
+            while (copied < remain_size) {
+                ssize_t rc = TEMP_FAILURE_RETRY(read(src_fd, buffer, std::min(sizeof(buffer), (size_t)(remain_size - copied))));
+                if (rc == -1) {
+                    MYLOGE("Read error at %lld/%lld: %s\n",
+                          (long long)copied, (long long)remain_size, strerror(errno));
+                    cleanup_temp();
+                    return -1;
+                }
+                if (rc == 0) break; // EOF
+
+                if (!android::base::WriteFully(dst_fd, buffer, rc)) {
+                    MYLOGE("Write error at %lld: %s\n", (long long)copied, strerror(errno));
+                    cleanup_temp();
+                    return -1;
+                }
+                copied += rc;
+            }
+
+            if (rename(tmp_path.c_str(), rklog_path.c_str()) == -1) {
+                MYLOGE("Failed to replace file: %s -> %s (%s)\n",
+                      tmp_path.c_str(), rklog_path.c_str(), strerror(errno));
+                cleanup_temp();
+                return -1;
+            }
+
+            MYLOGI("Successfully truncated rklog New size: %.2fMB\n", remain_size / (1024.0 * 1024.0));
+        }
     }
 
     return 0;
 }
 
+static const std::vector<std::string> PANIC_KEYWORDS = {
+    "Kernel panic",
+    "Watchdog detected hard LOCKUP",
+    "NMI watchdog: BUG: soft lockup",
+    "detected stalls on",
+    "Unable to handle kernel paging request",
+    "blocked for more than"
+};
+
+static void ExtractPanicLog(const std::string& path, const std::string& output_path) {
+    constexpr size_t CONTEXT_LINES = 25;
+    std::ifstream in_file(path);
+    std::ofstream out_file(output_path, std::ios::app);
+    bool found = false;
+    size_t remaining_lines = 0;
+    std::string line;
+
+    if (!in_file.is_open()) {
+        MYLOGE("Failed to open pstore file: %s\n", path.c_str());
+        return;
+    }
+
+    if (!out_file.is_open()) {
+        MYLOGE("Failed to open rklog file: %s\n", output_path.c_str());
+        return;
+    }
+
+    while (std::getline(in_file, line)) {
+        if (!found) {
+            for (const auto& keyword : PANIC_KEYWORDS) {
+                if (line.find(keyword) != std::string::npos) {
+                    out_file << "\n===== Last Kernel Panic Context =====\n";
+                    found = true;
+                    remaining_lines = CONTEXT_LINES;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            out_file << line << "\n";
+            if (--remaining_lines == 0) break;
+        }
+    }
+
+    if (found) {
+        out_file << "===== End of Panic Context =====\n";
+    }
+}
 
 #define RK_MINIDUMP_FILE "/proc/rk_md/minidump"
 static void DumpstateLastPanicLogOnly() {
@@ -2438,7 +2517,6 @@ static void DumpstateOnlyDemand() {
         printf("========================================================\n");
         printf("== system boot ,dump uboot log\n");
         printf("========================================================\n");
-        DumpFile("UBOOT/TRUST LOG", "/sys/fs/pstore/boot-log-ramoops-0");
 
         printf("========================================================\n");
         printf("== dump last kernel log\n");
@@ -2446,9 +2524,29 @@ static void DumpstateOnlyDemand() {
         DoKmsg();
         RunCommand("LAST LOGCAT", {"logcat", "-L", "-b", "all", "-v", "threadtime", "-v", "printable",
                                    "-v", "uid", "-d", "*:v"});
-    } else {
-        printf("== dump uboot and trust log\n");
-        DumpFile("UBOOT/TRUST LOG", "/sys/fs/pstore/boot-log-ramoops-0");
+        //-----add rklogs path-----
+        std::string rklog_path =
+            android::base::StringPrintf("%s/dumpstate-rklogs.txt", ds.bugreport_internal_dir_.c_str());
+
+        //add pannic last log to rklogs
+        if (!rklog_path.empty()) {
+            const std::vector<const char*> pstore_paths = {
+                PSTORE_LAST_KMSG,
+                ALT_PSTORE_LAST_KMSG,
+                "/proc/last_kmsg"
+            };
+
+            for (const auto& path : pstore_paths) {
+                struct stat st;
+                if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+                    MYLOGI("Analyzing pstore file: %s\n", path);
+                    ExtractPanicLog(path, rklog_path);
+                    break;
+                }
+            }
+        } else {
+            MYLOGE("RK log path not configured\n");
+        }
     }
 
     if (strstr(ds.android_bugrepot_reason.c_str(), "TOMBSTONE")) {
@@ -2494,7 +2592,8 @@ static void DumpstateOnlyDemand() {
         DumpExternalFragmentationInfo();
         RunCommand("LIST OF OPEN FILES", {"lsof"}, CommandOptions::AS_ROOT);
     }
-
+    printf("== dump uboot and trust log\n");
+    DumpFile("UBOOT/TRUST LOG", "/sys/fs/pstore/boot-log-ramoops-0");
     printf("========================================================\n");
     printf("== Basic info\n");
     printf("========================================================\n");
@@ -2517,6 +2616,18 @@ static void DumpstateOnlyDemand() {
     printf("========================================================\n");
     printf("== dumpstate: done (id %d)\n", ds.id_);
     printf("========================================================\n");
+    //-----add rklogs------------
+    std::string title =
+        android::base::StringPrintf("========%s: %s========", ds.android_bugrepot_reason.c_str(), ds.base_name_.c_str());
+    std::string src_path;
+    if (strstr(ds.android_bugrepot_reason.c_str(), "TOMBSTONE"))
+        src_path =
+            android::base::StringPrintf("%srklog.txt", TOMBSTONE_DIR.c_str());
+    else if (ds.android_bugrepot_reason == "SYSTEM_RESTART" || ds.android_bugrepot_reason == "SYSTEM_BOOT")
+        src_path = " ";
+    else
+        src_path = std::string(DROPBOX_DIR) + "/rklog.txt";
+    ds.AddToRkLogs(title, src_path);
 }
 //----rk-code----
 Dumpstate::RunStatus Dumpstate::DumpTraces(const char** path) {
@@ -3555,6 +3666,11 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         android::base::StringPrintf("%s/dumpstate-stats.txt", bugreport_internal_dir_.c_str());
     progress_.reset(new Progress(stats_path));
 
+    //------rk-code---------
+    if (chown(stats_path.c_str(), AID_SHELL, AID_SHELL) != 0) {
+        MYLOGE("chown(%s) failed: %s\n", stats_path.c_str(), strerror(errno));
+    }
+    //------rk-code-end--------
     if (acquire_wake_lock(PARTIAL_WAKE_LOCK, WAKE_LOCK_NAME) < 0) {
         MYLOGE("Failed to acquire wake lock: %s\n", strerror(errno));
     } else {
@@ -3877,7 +3993,59 @@ void Dumpstate::MaybeAddUiTracesToZip() {
 
     ds.AddDir(WMTRACE_DATA_DIR, false);
 }
+//----rk-code----
+void Dumpstate::AddToRkLogs(const std::string& title, const std::string& src_path) {
+    std::string dest_path = android::base::StringPrintf("%s/dumpstate-rklogs.txt", ds.bugreport_internal_dir_.c_str());
+    if (dest_path.empty() || dest_path == " ") {
+        MYLOGE("Invalid rklog path\n");
+        return;
+    }
 
+    android::base::unique_fd dest_fd(
+        TEMP_FAILURE_RETRY(open(dest_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0600)));
+
+    if (!dest_fd.ok()) {
+        MYLOGE("Open %s failed: %s\n", dest_path.c_str(), strerror(errno));
+        return;
+    }
+
+    if (!android::base::WriteStringToFd(title + "\n", dest_fd)) {
+        MYLOGE("Write title failed: %s\n", strerror(errno));
+        return;
+    }
+
+    if (!src_path.empty() && src_path != " ") {
+        android::base::unique_fd src_fd(TEMP_FAILURE_RETRY(open(src_path.c_str(), O_RDONLY)));
+        if (!src_fd.ok()) {
+            MYLOGE("Open source %s failed: %s\n", src_path.c_str(), strerror(errno));
+            return;
+        }
+
+        constexpr size_t BUFFER_SIZE = 4096;
+        char buffer[BUFFER_SIZE];
+        ssize_t bytes_read;
+        while ((bytes_read = TEMP_FAILURE_RETRY(read(src_fd, buffer, BUFFER_SIZE))) > 0) {
+            if (!android::base::WriteFully(dest_fd, buffer, bytes_read)) {
+                MYLOGE("Write failed: %s\n", strerror(errno));
+                break;
+            }
+        }
+        if (bytes_read < 0) {
+            MYLOGE("Read error: %s\n", strerror(errno));
+        }
+    } else {
+        MYLOGE("src patch is empty, only write title\n");
+    }
+
+    if (chmod(dest_path.c_str(), 0600) != 0) {
+        MYLOGE("chmod(%s) failed: %s\n", dest_path.c_str(), strerror(errno));
+    }
+    if (chown(dest_path.c_str(), AID_SHELL, AID_SHELL) != 0) {
+        MYLOGE("chown(%s) failed: %s\n", dest_path.c_str(), strerror(errno));
+    }
+}
+
+//----rk-code-end----
 void Dumpstate::onUiIntensiveBugreportDumpsFinished(int32_t calling_uid) {
     if (multiuser_get_app_id(calling_uid) == AID_SHELL || !CalledByApi()) {
         return;

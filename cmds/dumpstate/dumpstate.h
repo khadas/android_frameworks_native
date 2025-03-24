@@ -546,6 +546,8 @@ class Dumpstate {
     int pstore_reboot_reason = 0;
     std::string android_bugrepot_reason;
     std::string android_dropbox_time;
+
+    void AddToRkLogs(const std::string& title, const std::string& src_path);
     //-----------------
     // A callback to IncidentCompanion service, which checks user consent for sharing the
     // bugreport with the calling app. If the user has not responded yet to the dialog it will

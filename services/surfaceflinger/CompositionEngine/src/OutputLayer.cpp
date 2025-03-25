@@ -182,12 +182,20 @@ FloatRect OutputLayer::calculateOutputSourceCrop(uint32_t internalDisplayRotatio
 }
 
 //RK code
+// Fix White line in case that layer is mixed GPU and HW composite.
+//
+// In scenarios where the decimal part of certain rect values is 0.5,
+// using the rounding method might result in inconsistencies where the GPU's internal calculations do not round up,
+// while the CPU calculations do round up.
+// Change to +0.499 than clip will better align between GPU and CPU result
+// redmine: #547677 #540271
+
 static Rect ClipFloatRect2Rect(FloatRect rectf){
     Rect r;
-    r.left = static_cast<int32_t>(rectf.left);
-    r.top = static_cast<int32_t>(rectf.top);
-    r.right = static_cast<int32_t>(rectf.right);
-    r.bottom = static_cast<int32_t>(rectf.bottom);
+    r.left = static_cast<int32_t>(rectf.left+0.499);
+    r.top = static_cast<int32_t>(rectf.top+0.499);
+    r.right = static_cast<int32_t>(rectf.right+0.499);
+    r.bottom = static_cast<int32_t>(rectf.bottom+0.499);
     return r;
 }
 //RK code

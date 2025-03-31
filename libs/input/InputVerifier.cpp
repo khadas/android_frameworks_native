@@ -41,7 +41,9 @@ Result<void> InputVerifier::processMovement(int32_t deviceId, int32_t action, ui
     rust::Slice<const RustPointerProperties> properties{rpp.data(), rpp.size()};
     rust::String errorMessage =
             android::input::verifier::process_movement(*mVerifier, deviceId, action, properties,
-                                                       flags);
+                                                       //------rk modiry start------
+                                                       static_cast<uint32_t>(flags));
+                                                       //------rk modiry end------
     if (errorMessage.empty()) {
         return {};
     } else {

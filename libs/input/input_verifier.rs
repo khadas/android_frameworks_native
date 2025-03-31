@@ -49,7 +49,9 @@ mod ffi {
             device_id: i32,
             action: u32,
             pointer_properties: &[RustPointerProperties],
-            flags: i32,
+            //------rk modify start------
+            flags: u32,
+            //------rk modify end------
         ) -> String;
     }
 
@@ -69,7 +71,9 @@ fn process_movement(
     device_id: i32,
     action: u32,
     pointer_properties: &[RustPointerProperties],
-    flags: i32,
+    //------rk modify start------
+    flags: u32,
+    //------rk modify end------
 ) -> String {
     let result = verifier.process_movement(
         DeviceId(device_id),
@@ -138,8 +142,20 @@ impl From<u32> for MotionAction {
 }
 
 bitflags! {
-    struct Flags: i32 {
-        const CANCELED = input_bindgen::AMOTION_EVENT_FLAG_CANCELED;
+    //------rk modify start------
+    struct Flags: u32 {
+        const CANCELED = input_bindgen::AMOTION_EVENT_FLAG_CANCELED as u32;
+        /// FLAG_WINDOW_IS_OBSCURED
+        const WINDOW_IS_OBSCURED = input_bindgen::AMOTION_EVENT_FLAG_WINDOW_IS_OBSCURED;
+        /// FLAG_WINDOW_IS_PARTIALLY_OBSCURED
+        const WINDOW_IS_PARTIALLY_OBSCURED =
+                input_bindgen::AMOTION_EVENT_FLAG_WINDOW_IS_PARTIALLY_OBSCURED;
+        /// FLAG_IS_ACCESSIBILITY_EVENT
+        const IS_ACCESSIBILITY_EVENT =
+                input_bindgen::AMOTION_EVENT_FLAG_IS_ACCESSIBILITY_EVENT;
+        /// FLAG_NO_FOCUS_CHANGE
+        const NO_FOCUS_CHANGE = input_bindgen::AMOTION_EVENT_FLAG_NO_FOCUS_CHANGE;
+    //------rk modify end------
     }
 }
 

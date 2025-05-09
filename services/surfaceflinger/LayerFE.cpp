@@ -44,8 +44,17 @@ namespace {
 struct RKClientCompositeColorProperties {
     bool inited = false;
     bool bypassSDR2020 = true;
+    bool disableHDR = false;
     void init() {
         if (!inited) {
+            int hdr_force_disable =
+                    property_get_int32("debug.sf.hdr_force_disable", 0) > 0;
+            int hdr_force_overlay =
+                    property_get_int32("sys.hwc.hdr_video_force_overlay", 0) > 0;
+
+            // Disable HDR if hdr_force_disable is set or HDR force overlay is enabled
+            disableHDR = hdr_force_disable || hdr_force_overlay;
+
             bypassSDR2020 = property_get_int32("debug.sf.bypass_bt2020_sdr", 1) > 0;
 
             inited = true;
@@ -56,6 +65,10 @@ public:
     int GetBypassSDR2020() {
         init();
         return bypassSDR2020;
+    }
+    int GetDisableHDR() {
+        init();
+        return disableHDR;
     }
 } RKClientCompositeColorProperties_;
 
@@ -553,6 +566,21 @@ std::optional<compositionengine::LayerFE::LayerSettings> LayerFE::prepareClientC
                 (layerSettings.sourceDataspace & HAL_DATASPACE_RANGE_MASK) |
                 HAL_DATASPACE_TRANSFER_SRGB);
     }
+
+    // RK-code begin
+    // Disable SurfaceFlinger HDR composite if hwc force overlay is enabled
+    if (RKClientCompositeColorProperties_.GetDisableHDR()) {
+        if (((layerSettings.sourceDataspace & HAL_DATASPACE_TRANSFER_MASK) ==
+             HAL_DATASPACE_TRANSFER_ST2084) ||
+            ((layerSettings.sourceDataspace & HAL_DATASPACE_TRANSFER_MASK) ==
+             HAL_DATASPACE_TRANSFER_HLG)) {
+            layerSettings.sourceDataspace = static_cast<ui::Dataspace>(
+                    (layerSettings.sourceDataspace & HAL_DATASPACE_STANDARD_MASK) |
+                    (layerSettings.sourceDataspace & HAL_DATASPACE_RANGE_MASK) |
+                    HAL_DATASPACE_TRANSFER_SRGB);
+        }
+    }
+    // RK-code end
 
     // RK-code begin current VOP do not support BT2020 SDR
     if (RKClientCompositeColorProperties_.GetBypassSDR2020() &&

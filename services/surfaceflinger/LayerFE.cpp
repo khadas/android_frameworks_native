@@ -27,6 +27,8 @@
 #include <renderengine/impl/ExternalTexture.h>
 #include <ui/GraphicBuffer.h>
 #include <gralloctypes/Gralloc4.h>
+#include <cutils/properties.h>
+
 #if (RK_NV12_10_TO_NV12_BY_RGA | RK_RFBC_CONVERT_BY_RGA)
 // Use im2d api
 #include <im2d.hpp>
@@ -38,6 +40,25 @@
 namespace android {
 
 namespace {
+
+struct RKClientCompositeColorProperties {
+    bool inited = false;
+    bool bypassSDR2020 = true;
+    void init() {
+        if (!inited) {
+            bypassSDR2020 = property_get_int32("debug.sf.bypass_bt2020_sdr", 1) > 0;
+
+            inited = true;
+        }
+    }
+
+public:
+    int GetBypassSDR2020() {
+        init();
+        return bypassSDR2020;
+    }
+} RKClientCompositeColorProperties_;
+
 constexpr float defaultMaxLuminance = 1000.0;
 
 constexpr mat4 inverseOrientation(uint32_t transform) {
@@ -532,6 +553,21 @@ std::optional<compositionengine::LayerFE::LayerSettings> LayerFE::prepareClientC
                 (layerSettings.sourceDataspace & HAL_DATASPACE_RANGE_MASK) |
                 HAL_DATASPACE_TRANSFER_SRGB);
     }
+
+    // RK-code begin current VOP do not support BT2020 SDR
+    if (RKClientCompositeColorProperties_.GetBypassSDR2020() &&
+        (layerSettings.sourceDataspace & HAL_DATASPACE_STANDARD_MASK) ==
+                HAL_DATASPACE_STANDARD_BT2020 &&
+        (layerSettings.sourceDataspace & HAL_DATASPACE_TRANSFER_MASK) !=
+                HAL_DATASPACE_TRANSFER_ST2084 &&
+        (layerSettings.sourceDataspace & HAL_DATASPACE_TRANSFER_MASK) !=
+                HAL_DATASPACE_TRANSFER_HLG) {
+        layerSettings.sourceDataspace = static_cast<ui::Dataspace>(
+                (layerSettings.sourceDataspace & HAL_DATASPACE_TRANSFER_MASK) |
+                (layerSettings.sourceDataspace & HAL_DATASPACE_RANGE_MASK) |
+                HAL_DATASPACE_STANDARD_BT709);
+    }
+    // RK-code end
 
     layerSettings.whitePointNits = targetSettings.whitePointNits;
     switch (targetSettings.blurSetting) {

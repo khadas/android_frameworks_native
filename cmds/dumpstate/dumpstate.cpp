@@ -2581,8 +2581,8 @@ static void DumpstateOnlyDemand() {
         printf("========================================================\n");
         printf("== lowmem exception ,dump memory info\n");
         printf("========================================================\n");
-        RunDumpsys("DUMPSYS MEMINFO", {"meminfo"}, CommandOptions::WithTimeout(90).Build(),
-               SEC_TO_MSEC(10));
+        DumpFile("dma_buf", "/sys/kernel/debug/dma_buf/bufinfo");
+        DumpFile("gpu_buf", "/sys/kernel/debug/mali0/gpu_memory");
         DumpFile("VIRTUAL MEMORY STATS", "/proc/vmstat");
         DumpFile("VMALLOC INFO", "/proc/vmallocinfo");
         DumpFile("SLAB INFO", "/proc/slabinfo");
@@ -2616,6 +2616,12 @@ static void DumpstateOnlyDemand() {
     printf("========================================================\n");
     printf("== dumpstate: done (id %d)\n", ds.id_);
     printf("========================================================\n");
+
+    if (strstr(ds.android_bugrepot_reason.c_str(), "lowmem")) {
+        RunDumpsys("DUMPSYS MEMINFO", {"meminfo"}, CommandOptions::WithTimeout(90).Build(),
+               SEC_TO_MSEC(10));
+    }
+
     //-----add rklogs------------
     std::string title =
         android::base::StringPrintf("========%s: %s========", ds.android_bugrepot_reason.c_str(), ds.base_name_.c_str());

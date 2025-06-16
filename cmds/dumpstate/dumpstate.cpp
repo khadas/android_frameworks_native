@@ -2583,6 +2583,7 @@ static void DumpstateOnlyDemand() {
         printf("========================================================\n");
         DumpFile("dma_buf", "/sys/kernel/debug/dma_buf/bufinfo");
         DumpFile("gpu_buf", "/sys/kernel/debug/mali0/gpu_memory");
+        RunCommand("dma buf dump", {"dmabuf_dump", "-a"}, CommandOptions::AS_ROOT);
         DumpFile("VIRTUAL MEMORY STATS", "/proc/vmstat");
         DumpFile("VMALLOC INFO", "/proc/vmallocinfo");
         DumpFile("SLAB INFO", "/proc/slabinfo");

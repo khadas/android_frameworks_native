@@ -33,11 +33,6 @@ func globalDefaults(ctx android.BaseContext) ([]string) {
     var cflags []string
     //fmt.Println("BOARD_HS_DYNAMIC_AFBC_TARGET_SF:",ctx.AConfig().Getenv("BOARD_HS_DYNAMIC_AFBC_TARGET"))
 
-    if (!strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk356x") &&
-        !strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM"),"rk3588")){
-        cflags = append(cflags,"-DDISABLE_EXTERNAL_DISP_AFBC=1")
-    }
-
     if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-t860")) {
         cflags = append(cflags,"-DRK_NV12_10_TO_P010_BY_NEON=1")
     }else if (strings.EqualFold(ctx.AConfig().Getenv("TARGET_BOARD_PLATFORM_GPU"),"mali-G52") ||
